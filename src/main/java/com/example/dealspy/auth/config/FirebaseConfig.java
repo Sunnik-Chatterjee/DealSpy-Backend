@@ -1,4 +1,4 @@
-package com.example.dealspy.config;
+package com.example.dealspy.auth.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;

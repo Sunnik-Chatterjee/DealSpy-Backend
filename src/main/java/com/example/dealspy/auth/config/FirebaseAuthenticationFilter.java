@@ -1,4 +1,4 @@
-package com.example.dealspy.config;
+package com.example.dealspy.auth.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.auth.FirebaseAuth;
