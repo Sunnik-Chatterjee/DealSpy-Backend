@@ -94,11 +94,11 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> deleteFromSaveForLater(@PathVariable String productName) {
         String uid = AuthUtils.getCurrentUserId();
 
-        String message = saveForLaterService.deleteFromSaveForLater(uid, productName);
+        saveForLaterService.deleteFromSaveForLater(uid, productName);
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
-                message,
+               "Product removed from Save for later Successfully",
                 null
         );
         return ResponseEntity.ok(response);
