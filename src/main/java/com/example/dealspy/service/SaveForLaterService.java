@@ -11,6 +11,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -61,18 +62,25 @@ public class SaveForLaterService {
         return "Product added to Save For Later successfully";
     }
 
-    public String deleteFromSaveForLater(String uid, String productName) {
-        User user = userRepo.findById(uid)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    @Transactional
+    public void deleteFromSaveForLater(String uid, String productName) {
+        // Input validation
+        if (uid == null || productName == null) {
+            throw new IllegalArgumentException("User ID and Product name cannot be null");
+        }
 
+        // Find product first (more efficient than loading user first)
         Product product = productRepo.findByName(productName)
-                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Product not found: " + productName));
 
-        SaveForLater entry = (SaveForLater) saveForLaterRepo.findByUserAndProduct(user, product)
-                .orElseThrow(() -> new EntityNotFoundException("Save For Later entry not found"));
+        // Execute deletion and verify
+        int deletedCount = saveForLaterRepo.deleteByUserUidAndProductPid(uid, product.getPid());
 
-        saveForLaterRepo.delete(entry);
-
-        return "Product removed from Save For Later successfully";
+        if (deletedCount == 0) {
+            throw new EntityNotFoundException(
+                    String.format("No watchlist entry found for user %s and product %s (PID: %d)",
+                            uid, productName, product.getPid()));
+        }
     }
 }

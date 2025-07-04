@@ -1,5 +1,6 @@
 package com.example.dealspy.service;
 
+import com.example.dealspy.auth.controller.AuthController;
 import com.example.dealspy.dto.WatchlistDTO;
 import com.example.dealspy.mapper.WatchlistMapper;
 import com.example.dealspy.model.Product;
@@ -9,15 +10,18 @@ import com.example.dealspy.repo.ProductRepo;
 import com.example.dealspy.repo.UserRepo;
 import com.example.dealspy.repo.WatchListRepo;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 public class WatchListService {
-
+    private static final Logger logger = LoggerFactory.getLogger(WatchListService.class);
     @Autowired
     private WatchListRepo watchListRepo;
 
@@ -59,14 +63,28 @@ public class WatchListService {
 
     //Delete from watchlist
 
-    public void deleteFromWatchList(String uid, String productName){
-        User user = userRepo.findById(uid)
-                .orElseThrow(()-> new UsernameNotFoundException("User not found"));
-        Product product = productRepo.findByName(productName)
-                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+    @Transactional
+    public void deleteFromWatchList(String uid, String productName) {
+        // Input validation
+        if (uid == null || productName == null) {
+            throw new IllegalArgumentException("User ID and Product name cannot be null");
+        }
 
-        Watchlist entry = (Watchlist) watchListRepo.findByUserAndProduct(user, product)
-                .orElseThrow(() -> new EntityNotFoundException("Watchlist entry not found"));
-        watchListRepo.delete(entry);
+        // Find product first (more efficient than loading user first)
+        Product product = productRepo.findByName(productName)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Product not found: " + productName));
+
+        // Execute deletion and verify
+        int deletedCount = watchListRepo.deleteByUserUidAndProductPid(uid, product.getPid());
+
+        if (deletedCount == 0) {
+            throw new EntityNotFoundException(
+                    String.format("No watchlist entry found for user %s and product %s (PID: %d)",
+                            uid, productName, product.getPid()));
+        }
+
+        logger.info("Deleted watchlist entry - User: {}, Product: {} (PID: {})",
+                uid, productName, product.getPid());
     }
 }

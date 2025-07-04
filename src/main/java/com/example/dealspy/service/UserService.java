@@ -37,4 +37,15 @@ public class UserService {
 
         return new UserDetailDTO(watchlistDTOs,saveForLaterDTOS);
     }
+    public Boolean isUserExist(String uid){
+        return userRepo.existsById(uid);
+    }
+
+    public void addUserDetails(String uid,String email, String name){
+        User user = new User();
+        user.setUid(uid);
+        user.setName(name);
+        user.setEmail(email);
+        userRepo.save(user);
+    }
 }
