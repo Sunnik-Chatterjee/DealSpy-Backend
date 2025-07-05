@@ -1,12 +1,14 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY . .
-
-# Set Java version for compilation
-RUN mvn clean package -DskipTests -Dmaven.compiler.source=21 -Dmaven.compiler.target=21
+RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/target/DealSpy.jar DealSpy.jar
+COPY --from=build /app/target/*.jar app.jar
+
+# (Optional) If Firebase JSON must be copied (Render will override this)
+COPY firebase-service-account.json /app/
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "DealSpy.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

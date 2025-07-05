@@ -19,7 +19,6 @@ src/main/resources/firebase-service-account.json
 *.iws
 *.iml
 *.ipr
-src/main/resources/application.properties
 src/main/resources/firebase-service-account.json
 ### NetBeans ###
 /nbproject/private/
