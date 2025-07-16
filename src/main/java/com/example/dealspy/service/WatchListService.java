@@ -2,6 +2,7 @@ package com.example.dealspy.service;
 
 import com.example.dealspy.auth.controller.AuthController;
 import com.example.dealspy.dto.WatchlistDTO;
+import com.example.dealspy.dto.WatchlistResponseDTO;
 import com.example.dealspy.mapper.WatchlistMapper;
 import com.example.dealspy.model.Product;
 import com.example.dealspy.model.User;
@@ -32,14 +33,15 @@ public class WatchListService {
     private ProductRepo productRepo;
 
     //Get WatchList
-    public List<WatchlistDTO> getUserWatchList(String uid){
+    public List<WatchlistResponseDTO> getUserWatchList(String uid){
         User user = userRepo.findById(uid)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return watchListRepo.findByUser(user).stream()
-                .map(WatchlistMapper::toDTO)
+                .map(WatchlistMapper::toResponseDTO)
                 .toList();
     }
+
 
     //Post WatchList
     public void addToWatchList(String uid,WatchlistDTO watchList){

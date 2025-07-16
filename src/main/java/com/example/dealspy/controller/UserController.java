@@ -5,6 +5,7 @@ import com.example.dealspy.common.ApiResponse;
 import com.example.dealspy.dto.SaveForLaterDTO;
 import com.example.dealspy.dto.UserDetailDTO;
 import com.example.dealspy.dto.WatchlistDTO;
+import com.example.dealspy.dto.WatchlistResponseDTO;
 import com.example.dealspy.service.SaveForLaterService;
 import com.example.dealspy.service.UserService;
 import com.example.dealspy.service.WatchListService;
@@ -32,16 +33,14 @@ public class UserController {
         return userService.getUser(uid);
     }
 
-
-
-
     @GetMapping("/watchlist")
-    public ResponseEntity<ApiResponse<List<WatchlistDTO>>> getWatchList() {
+    public ResponseEntity<ApiResponse<List<WatchlistResponseDTO>>> getWatchList() {
         String uid = AuthUtils.getCurrentUserId();
-        List<WatchlistDTO> list = watchListService.getUserWatchList(uid);
-        ApiResponse<List<WatchlistDTO>> response = new ApiResponse<>(true, "watchlist fetched successfully", list);
+        List<WatchlistResponseDTO> list = watchListService.getUserWatchList(uid);
+        ApiResponse<List<WatchlistResponseDTO>> response = new ApiResponse<>(true, "watchlist fetched successfully", list);
         return ResponseEntity.ok(response);
     }
+
 
     @PostMapping("/watchlist")
     public ResponseEntity<ApiResponse<Void>> addToWatchList(@RequestBody WatchlistDTO watchlist) {
