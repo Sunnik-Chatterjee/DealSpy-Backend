@@ -5,23 +5,23 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
-
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 @Configuration
 public class FirebaseConfig {
     private static final Logger logger = LoggerFactory.getLogger(FirebaseConfig.class);
 
+    @Value("${firebase.config.path}") // Injects from application.properties
+    private String firebaseConfigPath;
+
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
         if (FirebaseApp.getApps().isEmpty()) {
-            try {
-                InputStream serviceAccount = new ClassPathResource("firebase-service-account.json").getInputStream();
-
+            try (FileInputStream serviceAccount = new FileInputStream(firebaseConfigPath)) {
                 FirebaseOptions options = FirebaseOptions.builder()
                         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                         .build();
@@ -36,5 +36,4 @@ public class FirebaseConfig {
         }
         return FirebaseApp.getInstance();
     }
-
 }
