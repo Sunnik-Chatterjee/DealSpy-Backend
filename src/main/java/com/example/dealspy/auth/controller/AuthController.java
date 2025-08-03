@@ -21,7 +21,10 @@ public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @GetMapping("/verify")
-    public ResponseEntity<ApiResponse<String>> verifyUser(@RequestHeader("Authorization") String authHeader) throws FirebaseAuthException{
+    public ResponseEntity<ApiResponse<String>> verifyUser(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "X-FCM-TOKEN", required = false) String fcmToken) throws FirebaseAuthException {
+
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 logger.warn("Invalid Authorization header received");
@@ -37,12 +40,13 @@ public class AuthController {
             String uid = decodedToken.getUid();
             String name = decodedToken.getName();
             String email = decodedToken.getEmail();
-            // check if user exists
+
             if (!userService.isUserExist(uid)) {
-                userService.addUserDetails(uid,email,name);
+                userService.addUserDetails(uid, email, name, fcmToken);
                 logger.info("New user saved to DB: {}", uid);
             } else {
                 logger.info("User already exists in DB: {}", uid);
+                userService.updateUserFcmToken(uid, fcmToken);
             }
 
             return ResponseEntity.ok(

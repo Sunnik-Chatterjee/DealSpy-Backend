@@ -12,6 +12,9 @@ import java.util.List;
 public interface WatchListRepo extends JpaRepository<Watchlist,Long> {
     List<Watchlist> findByUser(User user);
 
+    @Query("SELECT w.user FROM Watchlist w WHERE w.product.pid = :pid")
+    List<User> findUsersByProductId(@Param("pid") Integer pid);
+
     boolean existsByUserAndProduct(User user, Product product);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
