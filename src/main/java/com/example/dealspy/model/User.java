@@ -16,11 +16,15 @@ import lombok.Setter;
 @Getter
 @Setter
 public class User {
+
     @Id
     private String uid;
 
     @Column(unique = true, nullable = false)
-    private  String email;
+    private String email;
 
-    private  String name;
+    private String name;
+
+    @Column(name = "fcm_token")
+    private String fcmToken;
 }
