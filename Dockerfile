@@ -7,8 +7,5 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Copy Firebase credentials (only for local dev)
-COPY firebase-service-account.json /app/
-
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

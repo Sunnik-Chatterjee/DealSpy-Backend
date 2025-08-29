@@ -7,9 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class WatchlistResponseDTO {
+public class SaveForLaterResponseDTO {
     private String productName;
-    private TimeLeftDTO timeLeft;
     private String imageUrl;
     private String desc;
     private String deepLink;

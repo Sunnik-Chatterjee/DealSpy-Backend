@@ -3,37 +3,36 @@ package com.example.dealspy.auth.config;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import java.io.FileInputStream;
+import jakarta.annotation.PostConstruct;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+
 import java.io.IOException;
+import java.io.InputStream;
 
 @Configuration
+@EnableWebSecurity
 public class FirebaseConfig {
-    private static final Logger logger = LoggerFactory.getLogger(FirebaseConfig.class);
 
-    @Value("${firebase.config.path}") // Injects from application.properties
+    @Value("${firebase.config.path}")
     private String firebaseConfigPath;
 
-    @Bean
-    public FirebaseApp firebaseApp() throws IOException {
-        if (FirebaseApp.getApps().isEmpty()) {
-            try (FileInputStream serviceAccount = new FileInputStream(firebaseConfigPath)) {
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                        .build();
+    @PostConstruct
+    public void initialize() throws IOException {
+        InputStream serviceAccount = new ClassPathResource(firebaseConfigPath).getInputStream();
 
-                FirebaseApp app = FirebaseApp.initializeApp(options);
-                logger.info("Firebase Admin SDK initialized successfully");
-                return app;
-            } catch (IOException e) {
-                logger.error("Failed to initialize Firebase Admin SDK", e);
-                throw e;
-            }
+        if (serviceAccount == null) {
+            throw new RuntimeException("Firebase service account file not found at: " + firebaseConfigPath);
         }
-        return FirebaseApp.getInstance();
+
+        FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                .build();
+
+        FirebaseApp.initializeApp(options);
+
+        System.out.println("Firebase initialized successfully");
     }
 }

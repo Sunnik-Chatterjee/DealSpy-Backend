@@ -1,6 +1,5 @@
 package com.example.dealspy.service;
 
-import com.example.dealspy.auth.controller.AuthController;
 import com.example.dealspy.dto.WatchlistDTO;
 import com.example.dealspy.dto.WatchlistResponseDTO;
 import com.example.dealspy.mapper.WatchlistMapper;
@@ -13,7 +12,6 @@ import com.example.dealspy.repo.WatchListRepo;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,36 +21,45 @@ import java.util.List;
 @Service
 public class WatchListService {
     private static final Logger logger = LoggerFactory.getLogger(WatchListService.class);
-    @Autowired
-    private WatchListRepo watchListRepo;
 
-    @Autowired
-    private UserRepo userRepo;
+    private final WatchListRepo watchListRepo;
+    private final UserRepo userRepo;
+    private final ProductRepo productRepo;
+    private final WatchlistMapper mapper;
 
-    @Autowired
-    private ProductRepo productRepo;
+    public WatchListService(WatchListRepo watchListRepo,
+                            UserRepo userRepo,
+                            ProductRepo productRepo,
+                            WatchlistMapper mapper) {
+        this.watchListRepo = watchListRepo;
+        this.userRepo = userRepo;
+        this.productRepo = productRepo;
+        this.mapper = mapper;
+    }
 
-    //Get WatchList
-    public List<WatchlistResponseDTO> getUserWatchList(String uid){
+    // Get WatchList
+    public List<WatchlistResponseDTO> getUserWatchList(String uid) {
         User user = userRepo.findById(uid)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        return watchListRepo.findByUser(user).stream()
-                .map(WatchlistMapper::toResponseDTO)
+        return watchListRepo.findByUser(user)
+                .stream()
+                .map(mapper::toResponseDTO)  // ✅ use mapper
                 .toList();
     }
 
-
-    //Post WatchList
-    public void addToWatchList(String uid,WatchlistDTO watchList){
+    // Post WatchList
+    public void addToWatchList(String uid, WatchlistDTO watchList) {
         User user = userRepo.findById(uid)
-                .orElseThrow(()-> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
         Product product = productRepo.findByName(watchList.getProductName())
                 .orElseGet(() -> {
                     Product p = new Product();
                     p.setName(watchList.getProductName());
                     return productRepo.save(p);
                 });
+
         boolean exists = watchListRepo.existsByUserAndProduct(user, product);
         if (exists) throw new IllegalStateException("Already in watchlist");
 
@@ -63,21 +70,16 @@ public class WatchListService {
         watchListRepo.save(w);
     }
 
-    //Delete from watchlist
-
+    // Delete from watchlist
     @Transactional
     public void deleteFromWatchList(String uid, String productName) {
-        // Input validation
         if (uid == null || productName == null) {
             throw new IllegalArgumentException("User ID and Product name cannot be null");
         }
 
-        // Find product first (more efficient than loading user first)
         Product product = productRepo.findByName(productName)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Product not found: " + productName));
+                .orElseThrow(() -> new EntityNotFoundException("Product not found: " + productName));
 
-        // Execute deletion and verify
         int deletedCount = watchListRepo.deleteByUserUidAndProductPid(uid, product.getPid());
 
         if (deletedCount == 0) {

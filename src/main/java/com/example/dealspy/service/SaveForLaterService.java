@@ -1,6 +1,8 @@
 package com.example.dealspy.service;
 
 import com.example.dealspy.dto.SaveForLaterDTO;
+import com.example.dealspy.dto.SaveForLaterResponseDTO;
+import com.example.dealspy.mapper.SaveForLaterMapper;
 import com.example.dealspy.model.Product;
 import com.example.dealspy.model.SaveForLater;
 import com.example.dealspy.model.User;
@@ -8,7 +10,6 @@ import com.example.dealspy.repo.ProductRepo;
 import com.example.dealspy.repo.SaveForLaterRepo;
 import com.example.dealspy.repo.UserRepo;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,14 +19,20 @@ import java.util.List;
 @Service
 public class SaveForLaterService {
 
-    @Autowired
-    private UserRepo userRepo;
+    private final UserRepo userRepo;
+    private final ProductRepo productRepo;
+    private final SaveForLaterRepo saveForLaterRepo;
+    private final SaveForLaterMapper mapper;
 
-    @Autowired
-    private ProductRepo productRepo;
-
-    @Autowired
-    private SaveForLaterRepo saveForLaterRepo;
+    public SaveForLaterService(UserRepo userRepo,
+                               ProductRepo productRepo,
+                               SaveForLaterRepo saveForLaterRepo,
+                               SaveForLaterMapper mapper) {
+        this.userRepo = userRepo;
+        this.productRepo = productRepo;
+        this.saveForLaterRepo = saveForLaterRepo;
+        this.mapper = mapper;
+    }
 
     public List<SaveForLaterDTO> getUserSaveForLater(String uid) {
         User user = userRepo.findById(uid)
@@ -33,7 +40,7 @@ public class SaveForLaterService {
 
         return saveForLaterRepo.findByUser(user)
                 .stream()
-                .map(save -> new SaveForLaterDTO(save.getProduct().getName()))
+                .map(mapper::toDTO)  // ✅ use mapper
                 .toList();
     }
 
@@ -64,22 +71,18 @@ public class SaveForLaterService {
 
     @Transactional
     public void deleteFromSaveForLater(String uid, String productName) {
-        // Input validation
         if (uid == null || productName == null) {
             throw new IllegalArgumentException("User ID and Product name cannot be null");
         }
 
-        // Find product first (more efficient than loading user first)
         Product product = productRepo.findByName(productName)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Product not found: " + productName));
+                .orElseThrow(() -> new EntityNotFoundException("Product not found: " + productName));
 
-        // Execute deletion and verify
         int deletedCount = saveForLaterRepo.deleteByUserUidAndProductPid(uid, product.getPid());
 
         if (deletedCount == 0) {
             throw new EntityNotFoundException(
-                    String.format("No watchlist entry found for user %s and product %s (PID: %d)",
+                    String.format("No save-for-later entry found for user %s and product %s (PID: %d)",
                             uid, productName, product.getPid()));
         }
     }

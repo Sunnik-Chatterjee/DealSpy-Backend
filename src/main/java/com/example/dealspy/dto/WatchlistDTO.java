@@ -10,6 +10,8 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WatchlistDTO {
-    private String productName;       // mandatory for add + delete
-    private LocalDate watchEndDate;   // used only for add/get
+    private String productName;
+    private LocalDate watchEndDate;
+    private String imageUrl;
+    private String desc;
 }
