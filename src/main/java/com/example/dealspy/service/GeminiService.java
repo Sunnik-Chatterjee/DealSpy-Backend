@@ -111,18 +111,29 @@ public class GeminiService {
             JsonArray candidates = jsonObject.getAsJsonArray("candidates");
 
             if (candidates != null && !candidates.isEmpty()) {
-                JsonObject content = candidates.get(0).getAsJsonObject()
-                        .getAsJsonObject("content");
-                JsonArray parts = content.getAsJsonArray("parts");
+                JsonObject candidate = candidates.get(0).getAsJsonObject();
+                JsonObject content = candidate.getAsJsonObject("content");
 
-                if (parts != null && !parts.isEmpty()) {
-                    return parts.get(0).getAsJsonObject().get("text").getAsString();
+                // Check if content has parts array
+                if (content != null && content.has("parts")) {
+                    JsonArray parts = content.getAsJsonArray("parts");
+                    if (parts != null && !parts.isEmpty()) {
+                        return parts.get(0).getAsJsonObject().get("text").getAsString();
+                    }
+                }
+
+                // Handle case where finishReason is MAX_TOKENS (response cut off)
+                if (candidate.has("finishReason")) {
+                    String finishReason = candidate.get("finishReason").getAsString();
+                    if ("MAX_TOKENS".equals(finishReason)) {
+                        log.warn("Gemini response was cut off due to MAX_TOKENS limit");
+                        return ""; // or handle appropriately
+                    }
                 }
             }
 
             log.warn("No valid content found in Gemini response");
             return "";
-
         } catch (Exception e) {
             log.error("Error parsing Gemini response: {}", e.getMessage(), e);
             return "";
