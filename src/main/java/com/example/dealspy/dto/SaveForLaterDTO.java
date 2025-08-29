@@ -11,5 +11,6 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class SaveForLaterDTO {
     private String productName;
-
+    private String imageUrl;
+    private String desc;
 }

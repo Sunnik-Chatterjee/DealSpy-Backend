@@ -5,14 +5,15 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-@Service
-public class FCMService {
+import java.util.concurrent.CompletableFuture;
 
-    private static final Logger logger = LoggerFactory.getLogger(FCMService.class);
+@Service
+@Slf4j
+public class FCMService {
 
     public void sendNotificationToToken(String token, String title, String body) {
         try {
@@ -25,9 +26,16 @@ public class FCMService {
                     .build();
 
             String response = FirebaseMessaging.getInstance().send(message);
-            logger.info("Successfully sent message: {}", response);
+            log.info("Successfully sent message: {}", response);
         } catch (FirebaseMessagingException e) {
-            logger.error("Error sending FCM message", e);
+            log.error("Error sending FCM message", e);
         }
+    }
+
+    // ✅ ADD THIS METHOD - UserService calls this
+    @Async
+    public CompletableFuture<Void> sendNotificationToTokenAsync(String token, String title, String body) {
+        sendNotificationToToken(token, title, body);
+        return CompletableFuture.completedFuture(null);
     }
 }

@@ -23,4 +23,8 @@ public class Product {
     private Double currentPrice;
     private Double lastLowestPrice;
     private Boolean isPriceDropped;
+    private String imageUrl;
+    @Column(name = "`desc`")
+    private String desc;
+    private String deepLink;
 }
