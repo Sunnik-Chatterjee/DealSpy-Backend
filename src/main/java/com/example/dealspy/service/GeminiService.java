@@ -26,22 +26,20 @@ public class GeminiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    /**
+     * Get current lowest price for a product using Gemini API
+     * @param productName Name of the product
+     * @return Raw response text from Gemini
+     */
     public String getCurrentLowestPrice(String productName) {
         String enhancedPrompt = String.format(
-                "Find the absolute lowest current price for the product '%s' by searching across these Indian e-commerce platforms: " +
-                        "Amazon India, Flipkart, Snapdeal, Myntra, Ajio, Paytm Mall, BigBasket, Nykaa, and other major retailers. " +
-                        "Please provide:\n" +
-                        "1. The lowest price in INR\n" +
-                        "2. Platform name where this lowest price is found\n" +
-                        "3. Any current offers or discounts\n" +
-                        "Format: 'Lowest Price: ₹[amount] on [platform]'\n" +
-                        "Product: %s",
-                productName, productName
+                "Current price of %s in India? Reply: ₹[amount] on [platform]",
+                productName
         );
 
         String requestUrl = geminiApiUrl + "?key=" + geminiApiKey;
 
-        // Request body for Gemini 2.5 Flash API
+        // Request body for Gemini API
         Map<String, Object> requestBody = Map.of(
                 "contents", List.of(
                         Map.of(
@@ -51,10 +49,11 @@ public class GeminiService {
                         )
                 ),
                 "generationConfig", Map.of(
-                        "temperature", 0.1,  // Lower temperature for more factual responses
+                        "temperature", 0.1,
                         "topK", 1,
                         "topP", 0.8,
-                        "maxOutputTokens", 200
+                        "maxOutputTokens", 500,
+                        "candidateCount", 1
                 ),
                 "safetySettings", List.of(
                         Map.of(
@@ -63,6 +62,14 @@ public class GeminiService {
                         ),
                         Map.of(
                                 "category", "HARM_CATEGORY_HATE_SPEECH",
+                                "threshold", "BLOCK_MEDIUM_AND_ABOVE"
+                        ),
+                        Map.of(
+                                "category", "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                "threshold", "BLOCK_MEDIUM_AND_ABOVE"
+                        ),
+                        Map.of(
+                                "category", "HARM_CATEGORY_DANGEROUS_CONTENT",
                                 "threshold", "BLOCK_MEDIUM_AND_ABOVE"
                         )
                 )
@@ -83,21 +90,23 @@ public class GeminiService {
 
             if (responseEntity.getStatusCode() == HttpStatus.OK && responseEntity.getBody() != null) {
                 String rawResponse = responseEntity.getBody();
-                log.info("Gemini API Response for '{}': {}", productName, rawResponse);
+                log.debug("Gemini API Response for '{}': {}", productName, rawResponse);
                 return parseGeminiResponse(rawResponse);
             } else {
                 log.error("Failed to call Gemini API. Status: {}", responseEntity.getStatusCode());
-                throw new RuntimeException("Failed to call Gemini API: " + responseEntity.getStatusCode());
+                return null;
             }
 
         } catch (Exception e) {
-            log.error("Error calling Gemini API for product '{}': {}", productName, e.getMessage(), e);
-            throw new RuntimeException("Error while calling Gemini API: " + e.getMessage());
+            log.error("Error calling Gemini API for product '{}': {}", productName, e.getMessage());
+            return null;
         }
     }
 
     /**
      * Parse the Gemini API response to extract the text content
+     * @param responseBody Raw JSON response from Gemini API
+     * @return Extracted text content
      */
     private String parseGeminiResponse(String responseBody) {
         try {
@@ -106,48 +115,66 @@ public class GeminiService {
 
             if (candidates != null && !candidates.isEmpty()) {
                 JsonObject candidate = candidates.get(0).getAsJsonObject();
-                JsonObject content = candidate.getAsJsonObject("content");
 
-                // Check if content has parts array
-                if (content != null && content.has("parts")) {
-                    JsonArray parts = content.getAsJsonArray("parts");
-                    if (parts != null && !parts.isEmpty()) {
-                        return parts.get(0).getAsJsonObject().get("text").getAsString();
-                    }
-                }
-
-                // Handle case where finishReason is MAX_TOKENS (response cut off)
                 if (candidate.has("finishReason")) {
                     String finishReason = candidate.get("finishReason").getAsString();
                     if ("MAX_TOKENS".equals(finishReason)) {
                         log.warn("Gemini response was cut off due to MAX_TOKENS limit");
-                        return ""; // or handle appropriately
+                    } else if ("SAFETY".equals(finishReason)) {
+                        log.warn("Gemini response blocked due to safety settings");
+                        return null;
+                    }
+                    log.debug("Gemini finish reason: {}", finishReason);
+                }
+
+                JsonObject content = candidate.getAsJsonObject("content");
+                if (content != null && content.has("parts")) {
+                    JsonArray parts = content.getAsJsonArray("parts");
+                    if (parts != null && !parts.isEmpty()) {
+                        JsonObject part = parts.get(0).getAsJsonObject();
+                        if (part.has("text")) {
+                            String text = part.get("text").getAsString();
+                            log.info("Extracted text from Gemini: '{}'", text);
+                            return text;
+                        }
                     }
                 }
+                log.warn("No text content found in Gemini response for candidate");
+                return null;
             }
 
-            log.warn("No valid content found in Gemini response");
-            return "";
+            log.warn("No candidates found in Gemini response");
+            return null;
+
         } catch (Exception e) {
             log.error("Error parsing Gemini response: {}", e.getMessage(), e);
-            return "";
+            return null;
         }
     }
 
+    /**
+     * Extract price from the response text using multiple regex patterns
+     * @param responseText Text response from Gemini
+     * @return Extracted price as Double, or null if no price found
+     */
     public Double extractPrice(String responseText) {
         if (responseText == null || responseText.trim().isEmpty()) {
             log.warn("Empty response text provided for price extraction");
-            return 0.0;
+            return null;
         }
 
-        // Multiple regex patterns to catch different price formats
+        log.debug("Extracting price from text: '{}'", responseText);
+
+        // ✅ Multiple regex patterns to catch different price formats
         String[] pricePatterns = {
-                "₹\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",           // ₹1,234.50
-                "INR\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",        // INR 1234.50
-                "Rs\\.?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",     // Rs. 1234.50
-                "Price:\\s*₹?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)", // Price: ₹1234
+                "₹\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",              // ₹1,234.50
+                "INR\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",           // INR 1234.50
+                "Rs\\.?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",        // Rs. 1234.50
+                "Price[:\\s]*₹?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)", // Price: ₹1234
                 "Lowest.*?Price.*?₹?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)", // Lowest Price: 1234
-                "(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)\\s*(?:rupees?|INR|₹)" // 1234 rupees
+                "(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)\\s*(?:rupees?|INR|₹)", // 1234 rupees
+                "\\b(\\d{1,2},\\d{3}|\\d{1,5})\\b.*?(?:rupees?|INR|₹|on\\s+\\w+)", // 1,234 on Amazon
+                "\\b(\\d{3,6})\\b(?=.*(?:Amazon|Flipkart|Myntra|Nykaa|Snapdeal))" // 1234 (followed by platform)
         };
 
         for (String pattern : pricePatterns) {
@@ -158,61 +185,136 @@ public class GeminiService {
                 String priceStr = matcher.group(1).replaceAll(",", "");
                 try {
                     double price = Double.parseDouble(priceStr);
-                    log.info("Extracted price: ₹{} from response: {}", price, responseText.substring(0, Math.min(100, responseText.length())));
-                    return price;
+
+                    // ✅ Sanity check - reasonable price range
+                    if (price >= 10 && price <= 1000000) {
+                        log.info("Extracted price: ₹{} using pattern: '{}'", price, pattern);
+                        return price;
+                    } else {
+                        log.warn("Price out of reasonable range: ₹{}", price);
+                    }
                 } catch (NumberFormatException e) {
-                    log.warn("Failed to parse price: {}", priceStr);
-                    continue;
+                    log.warn("Failed to parse price: '{}'", priceStr);
                 }
             }
         }
 
-        // Fallback: extract any number and assume it's the price
-        Pattern fallbackPattern = Pattern.compile("(\\d+(?:\\.\\d{2})?)");
+        // ✅ Last resort: extract first number that looks like a price
+        Pattern fallbackPattern = Pattern.compile("\\b(\\d{2,6})\\b");
         Matcher fallbackMatcher = fallbackPattern.matcher(responseText);
-        if (fallbackMatcher.find()) {
+
+        while (fallbackMatcher.find()) {
             try {
                 double price = Double.parseDouble(fallbackMatcher.group(1));
-                log.info("Fallback extraction: ₹{}", price);
-                return price;
+                if (price >= 50 && price <= 500000) { // More restrictive for fallback
+                    log.info("Fallback price extraction: ₹{}", price);
+                    return price;
+                }
             } catch (NumberFormatException e) {
-                log.error("Failed to parse fallback price");
+                // Continue to next match
             }
         }
 
-        log.warn("No price found in response: {}", responseText);
-        return 0.0;
+        log.warn("No valid price found in response: '{}'", responseText);
+        return null;
     }
 
     /**
-     * Extract additional information like platform name and offers from the response
+     * Extract platform information from the response text
+     * @param responseText Text response from Gemini
+     * @return Platform name or null if not found
      */
-    public Map<String, String> extractDetailedInfo(String responseText) {
-        Map<String, String> info = new java.util.HashMap<>();
+    public String extractPlatform(String responseText) {
+        if (responseText == null || responseText.trim().isEmpty()) {
+            return null;
+        }
 
-        // Extract platform name
+        // ✅ Platform name patterns
         String[] platformPatterns = {
-                "on (Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa)",
-                "available on (Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa)",
-                "from (Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa)"
+                "on\\s+(Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa|Meesho)",
+                "available\\s+on\\s+(Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa|Meesho)",
+                "from\\s+(Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa|Meesho)",
+                "\\b(Amazon|Flipkart|Snapdeal|Myntra|Ajio|Paytm|BigBasket|Nykaa|Meesho)\\b"
         };
 
         for (String pattern : platformPatterns) {
             Pattern regex = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE);
             Matcher matcher = regex.matcher(responseText);
             if (matcher.find()) {
-                info.put("platform", matcher.group(1));
-                break;
+                String platform = matcher.group(1);
+                log.debug("Extracted platform: {}", platform);
+                return platform;
             }
         }
 
-        // Extract offers/discounts
-        Pattern offerPattern = Pattern.compile("(\\d+%\\s*off|discount|offer|sale)", Pattern.CASE_INSENSITIVE);
-        Matcher offerMatcher = offerPattern.matcher(responseText);
-        if (offerMatcher.find()) {
-            info.put("offer", offerMatcher.group());
+        log.debug("No platform found in response: '{}'", responseText);
+        return null;
+    }
+
+    /**
+     * Get detailed price information including platform and offers
+     * @param productName Name of the product
+     * @return Map containing price, platform, and other details
+     */
+    public Map<String, Object> getDetailedPriceInfo(String productName) {
+        String response = getCurrentLowestPrice(productName);
+        Map<String, Object> priceInfo = new java.util.HashMap<>();
+
+        if (response != null) {
+            Double price = extractPrice(response);
+            String platform = extractPlatform(response);
+
+            priceInfo.put("price", price);
+            priceInfo.put("platform", platform);
+            priceInfo.put("rawResponse", response);
+            priceInfo.put("success", price != null);
+        } else {
+            priceInfo.put("success", false);
+            priceInfo.put("error", "Failed to get response from Gemini API");
         }
 
-        return info;
+        return priceInfo;
+    }
+
+    /**
+     * Alternative method with ultra-simple prompt for problematic products
+     * @param productName Name of the product
+     * @return Raw response text from Gemini
+     */
+    public String getSimplePrice(String productName) {
+        String simplePrompt = productName + " price India ₹";
+
+        String requestUrl = geminiApiUrl + "?key=" + geminiApiKey;
+
+        Map<String, Object> requestBody = Map.of(
+                "contents", List.of(
+                        Map.of("parts", List.of(Map.of("text", simplePrompt)))
+                ),
+                "generationConfig", Map.of(
+                        "temperature", 0.0,
+                        "maxOutputTokens", 100
+                )
+        );
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            log.info("Trying simple price search for: {}", productName);
+
+            ResponseEntity<String> responseEntity = restTemplate.postForEntity(
+                    requestUrl, requestEntity, String.class
+            );
+
+            if (responseEntity.getStatusCode() == HttpStatus.OK && responseEntity.getBody() != null) {
+                return parseGeminiResponse(responseEntity.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Simple price search failed for '{}': {}", productName, e.getMessage());
+        }
+
+        return null;
     }
 }
