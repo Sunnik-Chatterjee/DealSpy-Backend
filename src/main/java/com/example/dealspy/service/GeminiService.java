@@ -26,13 +26,7 @@ public class GeminiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    /**
-     * Search for the lowest price across multiple e-commerce platforms using Gemini 2.5 Flash
-     * @param productName The product name to search for
-     * @return Parsed response from Gemini containing price information
-     */
     public String getCurrentLowestPrice(String productName) {
-        // Enhanced prompt for better accuracy and multi-platform search
         String enhancedPrompt = String.format(
                 "Find the absolute lowest current price for the product '%s' by searching across these Indian e-commerce platforms: " +
                         "Amazon India, Flipkart, Snapdeal, Myntra, Ajio, Paytm Mall, BigBasket, Nykaa, and other major retailers. " +
@@ -140,9 +134,6 @@ public class GeminiService {
         }
     }
 
-    /**
-     * Extract the lowest price from Gemini response text using improved regex patterns
-     */
     public Double extractPrice(String responseText) {
         if (responseText == null || responseText.trim().isEmpty()) {
             log.warn("Empty response text provided for price extraction");
