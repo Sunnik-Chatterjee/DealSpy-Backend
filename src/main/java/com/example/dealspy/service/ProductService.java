@@ -408,4 +408,78 @@ public class ProductService {
         }
         return productRepo.findByName(productName.trim()).isPresent();
     }
+
+    public Product findOrCreateProduct(String productName, String imageUrl, String desc) {
+        if (productName == null || productName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Product name cannot be null or empty");
+        }
+
+        // Try to find existing product
+        Optional<Product> existingProduct = productRepo.findByName(productName.trim());
+
+        if (existingProduct.isPresent()) {
+            log.debug("Found existing product: {}", productName);
+            return existingProduct.get();
+        }
+
+        // Create new product with all required fields
+        log.info("Creating new product with details: {}", productName);
+        Product newProduct = new Product();
+        newProduct.setName(productName.trim());
+        newProduct.setImageUrl(imageUrl);
+        newProduct.setDesc(desc);
+
+        // Parse and set product details from description
+        parseAndSetProductDetails(newProduct, desc);
+
+        return productRepo.save(newProduct);
+    }
+
+    /**
+     * Parse description to extract product details
+     * @param product Product to update
+     * @param desc Description string to parse
+     */
+    private void parseAndSetProductDetails(Product product, String desc) {
+        try {
+            if (desc != null && !desc.trim().isEmpty()) {
+                // Parse: "Platform - ₹Price - ProductName - DeepLink"
+                String[] parts = desc.split(" - ");
+
+                if (parts.length >= 2) {
+                    // Extract price (remove currency symbols and commas)
+                    String priceStr = parts[1].replaceAll("[₹,\\s]", "");
+                    try {
+                        double price = Double.parseDouble(priceStr);
+                        product.setCurrentPrice(price);  // ✅ Always set current price
+                        log.debug("Extracted price for {}: ₹{}", product.getName(), price);
+                    } catch (NumberFormatException e) {
+                        product.setCurrentPrice(0.0);    // ✅ Fallback price
+                        log.warn("Could not parse price from: {}, setting to 0.0", parts[1]);
+                    }
+                } else {
+                    product.setCurrentPrice(0.0);        // ✅ Default price
+                }
+            } else {
+                // No description provided
+                product.setCurrentPrice(0.0);            // ✅ Required field
+            }
+
+            // ✅ Set these as null initially - will be updated by scheduled job
+            product.setLastLowestPrice(null);            // ✅ Null until first update
+            product.setDeepLink(null);                   // ✅ Null initially (will be extracted later)
+            product.setIsPriceDropped(null);             // ✅ Null until first comparison
+
+            log.debug("Product details set for: {} with initial price: ₹{}",
+                    product.getName(), product.getCurrentPrice());
+
+        } catch (Exception e) {
+            log.error("Error parsing product details for: {}", product.getName(), e);
+            // Set safe defaults if parsing fails
+            product.setCurrentPrice(0.0);                // ✅ Only current price required
+            product.setLastLowestPrice(null);            // ✅ Null initially
+            product.setDeepLink(null);                   // ✅ Null initially
+            product.setIsPriceDropped(null);             // ✅ Null initially
+        }
+    }
 }
