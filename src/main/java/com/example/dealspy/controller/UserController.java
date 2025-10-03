@@ -28,10 +28,22 @@ public class UserController {
 
 
     @GetMapping("/profile")
-    public UserDetailDTO getUserProfile() {
-        String uid = AuthUtils.getCurrentUserId();
-        return userService.getUser(uid);
+    public ApiResponse<UserDetailDTO> getUserProfile() {
+        try {
+            String uid = AuthUtils.getCurrentUserId();
+            UserDetailDTO user = userService.getUser(uid);
+
+            if (user != null) {
+                return new ApiResponse<>(true, "Profile loaded successfully", user);
+            } else {
+                return new ApiResponse<>(false, "User profile not found", null);
+            }
+        } catch (Exception e) {
+            return new ApiResponse<>(false, "Failed to load profile: " + e.getMessage(), null);
+        }
     }
+
+
 
     @GetMapping("/watchlist")
     public ResponseEntity<ApiResponse<List<WatchlistResponseDTO>>> getWatchList() {
@@ -102,5 +114,18 @@ public class UserController {
         );
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/fcm-token")
+    public ResponseEntity<ApiResponse<String>> updateFcmToken(@RequestBody String fcmToken) {
+        String uid = AuthUtils.getCurrentUserId();
+        boolean updated = userService.updateUserFcmToken(uid, fcmToken);
+
+        if (updated) {
+            return ResponseEntity.ok(new ApiResponse<>(true, "FCM token updated successfully", null));
+        } else {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Failed to update FCM token", null));
+        }
+    }
+
 
 }
