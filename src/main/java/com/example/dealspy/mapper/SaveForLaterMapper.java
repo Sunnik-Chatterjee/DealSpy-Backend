@@ -19,7 +19,6 @@ public interface SaveForLaterMapper {
     @Mapping(source = "product.name", target = "productName")
     @Mapping(source = "product.imageUrl", target = "imageUrl")
     @Mapping(source = "product.desc", target = "desc")
-    @Mapping(source = "product.deepLink", target = "deepLink")
     SaveForLaterResponseDTO toResponseDTO(SaveForLater saveForLater);
 
     List<SaveForLaterDTO> toDTOList(List<SaveForLater> saveForLaterList);

@@ -24,7 +24,6 @@ public interface WatchlistMapper {
     @Mapping(source = "product.name", target = "productName")
     @Mapping(source = "product.imageUrl", target = "imageUrl")
     @Mapping(source = "product.desc", target = "desc")
-    @Mapping(source = "product.deepLink", target = "deepLink")
     @Mapping(target = "timeLeft", expression = "java(calculateTimeLeft(watchlist.getWatchEndDate()))")
     WatchlistResponseDTO toResponseDTO(Watchlist watchlist);
 
