@@ -12,5 +12,4 @@ public class WatchlistResponseDTO {
     private TimeLeftDTO timeLeft;
     private String imageUrl;
     private String desc;
-    private String deepLink;
 }
