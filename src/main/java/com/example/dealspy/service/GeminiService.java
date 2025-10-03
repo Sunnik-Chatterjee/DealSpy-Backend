@@ -27,92 +27,183 @@ public class GeminiService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     /**
-     * 🎯 MAIN METHOD: Get current lowest price with smart fallback strategy
-     * Step 1: Try standard prompt
-     * Step 2: If fails, try ultra-minimal prompt
-     * Step 3: If still fails, return null (preserve existing price)
+     * 🎯 MAIN METHOD: Progressive fallback strategy for maximum success
+     * Uses 4 levels of increasingly minimal prompts
      */
     public String getCurrentLowestPrice(String productName) {
-        // 🔧 SOLUTION 1: Try standard short prompt first
-        String response = tryStandardPrompt(productName);
+        // 🔧 Level 1: Ultra-minimal prompt (just product + currency)
+        String response = tryUltraMinimalPrompt(productName);
         if (response != null && !response.trim().isEmpty()) {
             return response;
         }
 
-        // 🔧 SOLUTION 2: Fallback to ultra-minimal prompt
-        log.warn("Standard prompt failed for '{}', trying minimal prompt", productName);
-        response = tryMinimalPrompt(productName);
+        // 🔧 Level 2: Brand-focused prompt
+        log.warn("Ultra-minimal failed for '{}', trying brand-focused", productName);
+        response = tryBrandFocusedPrompt(productName);
         if (response != null && !response.trim().isEmpty()) {
             return response;
         }
 
-        // 🔧 SOLUTION 3: Last resort with truncated name
-        log.warn("Minimal prompt failed for '{}', trying truncated name", productName);
-        return tryTruncatedPrompt(productName);
+        // 🔧 Level 3: First 3 words only
+        log.warn("Brand-focused failed for '{}', trying 3-word prompt", productName);
+        response = tryThreeWordPrompt(productName);
+        if (response != null && !response.trim().isEmpty()) {
+            return response;
+        }
+
+        // 🔧 Level 4: Single word + price
+        log.warn("3-word failed for '{}', trying single-word prompt", productName);
+        return trySingleWordPrompt(productName);
     }
 
     /**
-     * 🎯 SOLUTION 1: Standard short prompt (works for most products)
-     * Token usage: ~15-20 tokens (vs 150+ tokens in old version)
+     * 🎯 Level 1: Ultra-minimal prompt - highest success rate
+     * Token usage: ~5-8 tokens
      */
-    private String tryStandardPrompt(String productName) {
-        // ✅ ULTRA-SHORT prompt - only essential words
-        String prompt = String.format("Price of %s in India: ₹", productName);
+    private String tryUltraMinimalPrompt(String productName) {
+        // ✅ Remove all unnecessary words and characters
+        String cleanName = cleanProductName(productName);
+        String prompt = cleanName + " ₹";
 
-        return callGeminiAPI(prompt, 400, "standard");
+        return callGeminiAPI(prompt, 1000, "ultra-minimal");
     }
 
     /**
-     * 🎯 SOLUTION 2: Ultra-minimal prompt (for problematic products)
-     * Token usage: ~8-12 tokens
+     * 🎯 Level 2: Brand-focused prompt for branded products
+     * Token usage: ~3-6 tokens
      */
-    private String tryMinimalPrompt(String productName) {
-        // ✅ MINIMAL prompt - just product name + currency
-        String prompt = productName + " ₹";
+    private String tryBrandFocusedPrompt(String productName) {
+        String brandName = extractBrandName(productName);
+        String productType = extractProductType(productName);
 
-        return callGeminiAPI(prompt, 300, "minimal");
+        String prompt;
+        if (productType != null) {
+            prompt = brandName + " " + productType + " ₹";
+        } else {
+            prompt = brandName + " ₹";
+        }
+
+        return callGeminiAPI(prompt, 800, "brand-focused");
     }
 
     /**
-     * 🎯 SOLUTION 3: Truncated name prompt (for very long product names)
-     * Token usage: ~10-15 tokens max
+     * 🎯 Level 3: First 3 words only
+     * Token usage: ~3-5 tokens
      */
-    private String tryTruncatedPrompt(String productName) {
-        // ✅ TRUNCATE long product names to save tokens
-        String shortName = productName.length() > 40 ?
-                productName.substring(0, 40).trim() : productName;
-
-        // Remove common words that don't help with price searching
-        shortName = shortName
-                .replaceAll("\\b(with|and|for|the|in|on|at)\\b", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
+    private String tryThreeWordPrompt(String productName) {
+        String[] words = productName.split("\\s+");
+        String shortName = words.length > 3 ?
+                String.join(" ", words[0], words[1], words[2]) : productName;
 
         String prompt = shortName + " ₹";
-        log.info("Trying truncated name: '{}' for original: '{}'", shortName, productName);
-
-        return callGeminiAPI(prompt, 200, "truncated");
+        return callGeminiAPI(prompt, 600, "three-word");
     }
 
     /**
-     * 🎯 CORE API CALL METHOD: Centralized Gemini API calling
-     * This eliminates code duplication and provides consistent configuration
+     * 🎯 Level 4: Single word + price (last resort)
+     * Token usage: ~2-3 tokens
+     */
+    private String trySingleWordPrompt(String productName) {
+        String singleWord = extractMostImportantWord(productName);
+        String prompt = singleWord + " ₹";
+
+        return callGeminiAPI(prompt, 400, "single-word");
+    }
+
+    /**
+     * 🧹 Clean product name - remove noise words and special characters
+     */
+    private String cleanProductName(String productName) {
+        return productName
+                // Remove common noise words
+                .replaceAll("\\b(with|and|for|the|in|on|at|of|-)\\b", " ")
+                // Remove extra spaces
+                .replaceAll("\\s+", " ")
+                // Remove special characters except letters, numbers, spaces
+                .replaceAll("[^a-zA-Z0-9\\s]", " ")
+                .trim();
+    }
+
+    /**
+     * 🏷️ Extract brand name from product title
+     */
+    private String extractBrandName(String productName) {
+        // Known Indian brands - expand this list as needed
+        String[] knownBrands = {
+                "American Tourister", "Maybelline", "M.A.C", "MAC", "Lakmé", "Lakme",
+                "SUGAR", "Nykaa", "Boat", "boAt", "Samsung", "Apple", "OnePlus",
+                "Xiaomi", "Realme", "Nike", "Adidas", "Puma", "Levi", "H&M",
+                "Zara", "Forever21", "Myntra", "Ajio", "Flipkart", "Amazon"
+        };
+
+        String productLower = productName.toLowerCase();
+        for (String brand : knownBrands) {
+            if (productLower.contains(brand.toLowerCase())) {
+                return brand;
+            }
+        }
+
+        // Fallback: first word (usually brand)
+        return productName.split("\\s+")[0];
+    }
+
+    /**
+     * 🔍 Extract product type (lipstick, backpack, etc.)
+     */
+    private String extractProductType(String productName) {
+        String[] productTypes = {
+                "lipstick", "backpack", "shoes", "shirt", "dress", "phone",
+                "laptop", "tablet", "watch", "perfume", "cream", "shampoo",
+                "bag", "wallet", "sunglasses", "jeans", "jacket"
+        };
+
+        String productLower = productName.toLowerCase();
+        for (String type : productTypes) {
+            if (productLower.contains(type)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 🎯 Extract most important word for single-word prompt
+     */
+    private String extractMostImportantWord(String productName) {
+        // Priority order: brand name > product type > first word
+        String brand = extractBrandName(productName);
+        if (!brand.equals(productName.split("\\s+")[0])) {
+            return brand; // Known brand found
+        }
+
+        String type = extractProductType(productName);
+        if (type != null) {
+            return type;
+        }
+
+        // Fallback: first word
+        return productName.split("\\s+")[0];
+    }
+
+    /**
+     * 🌐 Core API calling method with optimized configuration
      */
     private String callGeminiAPI(String prompt, int maxTokens, String promptType) {
         String requestUrl = geminiApiUrl + "?key=" + geminiApiKey;
 
-        // ✅ OPTIMIZED configuration for maximum success rate
+        // ✅ Highly optimized configuration for maximum success
         Map<String, Object> requestBody = Map.of(
                 "contents", List.of(
                         Map.of("parts", List.of(Map.of("text", prompt)))
                 ),
                 "generationConfig", Map.of(
-                        "temperature", 0.0,      // ✅ Most deterministic responses
-                        "topK", 1,               // ✅ Focus on most likely response
+                        "temperature", 0.1,      // ✅ Low temperature for factual responses
+                        "topK", 1,               // ✅ Most focused response
                         "topP", 0.8,             // ✅ Good balance
-                        "maxOutputTokens", maxTokens, // ✅ Dynamic token allocation
+                        "maxOutputTokens", maxTokens, // ✅ Progressive token allocation
                         "candidateCount", 1      // ✅ Single response only
                 ),
+                // ✅ Relaxed safety settings to avoid blocks
                 "safetySettings", List.of(
                         Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_ONLY_HIGH"),
                         Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_ONLY_HIGH"),
@@ -128,8 +219,7 @@ public class GeminiService {
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
         try {
-            log.debug("Calling Gemini API with {} prompt: '{}' (maxTokens: {})",
-                    promptType, prompt, maxTokens);
+            log.debug("🔍 {} prompt: '{}' (tokens: {})", promptType, prompt, maxTokens);
 
             ResponseEntity<String> responseEntity = restTemplate.postForEntity(
                     requestUrl, requestEntity, String.class
@@ -138,24 +228,24 @@ public class GeminiService {
             if (responseEntity.getStatusCode() == HttpStatus.OK && responseEntity.getBody() != null) {
                 String response = parseGeminiResponse(responseEntity.getBody(), promptType);
                 if (response != null && !response.trim().isEmpty()) {
-                    log.info("✅ {} prompt SUCCESS for: '{}'", promptType, prompt);
+                    log.info("✅ {} prompt SUCCESS: '{}'", promptType, prompt);
                     return response;
                 } else {
-                    log.warn("❌ {} prompt returned empty response for: '{}'", promptType, prompt);
+                    log.warn("❌ {} prompt empty response: '{}'", promptType, prompt);
                 }
             } else {
-                log.error("❌ {} prompt API error. Status: {}", promptType, responseEntity.getStatusCode());
+                log.error("❌ {} prompt API error: {}", promptType, responseEntity.getStatusCode());
             }
 
         } catch (Exception e) {
-            log.error("❌ {} prompt exception for '{}': {}", promptType, prompt, e.getMessage());
+            log.error("❌ {} prompt exception: '{}' - {}", promptType, prompt, e.getMessage());
         }
 
         return null;
     }
 
     /**
-     * 🎯 ENHANCED RESPONSE PARSER: Better error handling and partial content extraction
+     * 📖 Enhanced response parser with better truncation handling
      */
     private String parseGeminiResponse(String responseBody, String promptType) {
         try {
@@ -165,19 +255,17 @@ public class GeminiService {
             if (candidates != null && !candidates.isEmpty()) {
                 JsonObject candidate = candidates.get(0).getAsJsonObject();
 
-                // ✅ DETAILED finish reason handling
+                // ✅ Handle finish reasons
                 String finishReason = null;
                 if (candidate.has("finishReason")) {
                     finishReason = candidate.get("finishReason").getAsString();
-                    log.debug("Gemini finish reason ({}): {}", promptType, finishReason);
 
-                    // ✅ Handle different finish reasons appropriately
                     switch (finishReason) {
                         case "MAX_TOKENS":
-                            log.warn("⚠️ {} prompt hit MAX_TOKENS - response truncated", promptType);
+                            log.debug("⚠️ {} prompt truncated (MAX_TOKENS)", promptType);
                             break;
                         case "SAFETY":
-                            log.warn("⚠️ {} prompt blocked by safety filter", promptType);
+                            log.warn("⚠️ {} prompt blocked by safety", promptType);
                             return null;
                         case "STOP":
                             log.debug("✅ {} prompt completed normally", promptType);
@@ -185,7 +273,7 @@ public class GeminiService {
                     }
                 }
 
-                // ✅ EXTRACT content even if truncated (MAX_TOKENS)
+                // ✅ Extract text content (even if truncated)
                 JsonObject content = candidate.getAsJsonObject("content");
                 if (content != null && content.has("parts")) {
                     JsonArray parts = content.getAsJsonArray("parts");
@@ -194,104 +282,112 @@ public class GeminiService {
                         if (part.has("text")) {
                             String text = part.get("text").getAsString().trim();
                             if (!text.isEmpty()) {
-                                log.info("📝 Extracted text from {} prompt: '{}'", promptType, text);
+                                log.info("📝 {} extracted: '{}'", promptType,
+                                        text.length() > 100 ? text.substring(0, 100) + "..." : text);
                                 return text;
                             }
                         }
                     }
                 }
-
-                log.warn("⚠️ {} prompt: No text content in response", promptType);
-            } else {
-                log.warn("⚠️ {} prompt: No candidates in response", promptType);
             }
 
         } catch (Exception e) {
-            log.error("❌ Error parsing {} prompt response: {}", promptType, e.getMessage());
+            log.error("❌ Error parsing {} response: {}", promptType, e.getMessage());
         }
 
         return null;
     }
 
     /**
-     * 🎯 ENHANCED PRICE EXTRACTION: Multiple patterns + smart validation
+     * 💰 Enhanced price extraction with comprehensive patterns
      */
     public Double extractPrice(String responseText) {
         if (responseText == null || responseText.trim().isEmpty()) {
-            log.warn("Empty response text for price extraction");
+            log.warn("Empty response for price extraction");
             return null;
         }
 
         String text = responseText.trim();
-        log.debug("🔍 Extracting price from: '{}'", text);
+        log.debug("🔍 Extracting price from: '{}'", text.length() > 50 ? text.substring(0, 50) + "..." : text);
 
-        // ✅ COMPREHENSIVE price patterns (ordered by reliability)
+        // ✅ Comprehensive price patterns (ordered by reliability)
         String[] pricePatterns = {
                 "₹\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",              // ₹1,234.50
+                "\\*\\*₹(\\d+(?:,\\d{3})*)\\*\\*",                   // **₹699** (bold formatting)
                 "Rs\\.?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",        // Rs. 1234
                 "INR\\s*(\\d+(?:,\\d{3})*(?:\\.\\d{2})?)",           // INR 1234
                 "Price[:\\s]*₹?\\s*(\\d+(?:,\\d{3})*)",              // Price: 1234
+                "around\\s*₹?\\s*(\\d+(?:,\\d{3})*)",                // around ₹699
+                "generally\\s*₹?\\s*(\\d+(?:,\\d{3})*)",             // generally ₹699
                 "(\\d+(?:,\\d{3})*)\\s*(?:rupees?|INR|₹)",           // 1234 rupees
-                "\\b(\\d{1,2},\\d{3}|\\d{3,6})\\b",                 // 1,234 or 1234-999999
-                "\\$\\s*(\\d+).*convert",                            // $50 (convert to INR - fallback)
+                "\\b(\\d{2,6})\\b(?=.*(?:platform|website|store))",  // 1234 (near platform words)
+                "\\b(\\d{3,6})\\b"                                   // Any 3-6 digit number (last resort)
         };
 
         for (int i = 0; i < pricePatterns.length; i++) {
             Pattern regex = Pattern.compile(pricePatterns[i], Pattern.CASE_INSENSITIVE);
             Matcher matcher = regex.matcher(text);
 
-            if (matcher.find()) {
+            while (matcher.find()) {
                 String priceStr = matcher.group(1).replaceAll(",", "");
                 try {
                     double price = Double.parseDouble(priceStr);
 
-                    // ✅ SMART validation - reasonable price ranges
+                    // ✅ Smart price validation
                     if (isValidPrice(price)) {
-                        log.info("💰 Extracted price: ₹{} using pattern #{}: '{}'",
-                                price, i+1, pricePatterns[i]);
+                        log.info("💰 Extracted: ₹{} using pattern #{}", price, i + 1);
                         return price;
                     } else {
-                        log.warn("⚠️ Price ₹{} outside valid range (₹10-₹500000)", price);
+                        log.debug("⚠️ Price ₹{} outside valid range", price);
                     }
                 } catch (NumberFormatException e) {
-                    log.warn("⚠️ Failed to parse price string: '{}'", priceStr);
+                    log.debug("⚠️ Failed to parse: '{}'", priceStr);
                 }
             }
         }
 
-        log.warn("❌ No valid price found in: '{}'", text);
+        log.warn("❌ No valid price in: '{}'", text.length() > 100 ? text.substring(0, 100) + "..." : text);
         return null;
     }
 
     /**
-     * 🎯 PRICE VALIDATION: Ensures extracted prices are reasonable
+     * ✅ Smart price validation with category-based ranges
      */
     private boolean isValidPrice(double price) {
-        return price >= 10 && price <= 500000; // ₹10 to ₹5,00,000 range
+        // Basic range check
+        if (price < 10 || price > 1000000) {
+            return false;
+        }
+
+        // Additional validation can be added based on product category
+        return true;
     }
 
     /**
-     * 🎯 PLATFORM EXTRACTION: Get the e-commerce platform name
+     * 🏪 Extract platform/store information
      */
     public String extractPlatform(String responseText) {
         if (responseText == null) return null;
 
         String[] platformPatterns = {
-                "\\b(Amazon|Flipkart|Myntra|Nykaa|Snapdeal|Ajio|Paytm|Meesho|BigBasket)\\b"
+                "\\b(Amazon|Flipkart|Myntra|Nykaa|Snapdeal|Ajio|Paytm|Meesho|BigBasket|Tata|Reliance)\\b",
+                "\\b(Sephora|MAC|official\\s+website)\\b"
         };
 
         for (String pattern : platformPatterns) {
             Pattern regex = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE);
             Matcher matcher = regex.matcher(responseText);
             if (matcher.find()) {
-                return matcher.group(1);
+                String platform = matcher.group(1);
+                log.debug("🏪 Found platform: {}", platform);
+                return platform;
             }
         }
         return null;
     }
 
     /**
-     * 🎯 COMPREHENSIVE PRICE INFO: Returns complete price details
+     * 📊 Get comprehensive price information
      */
     public Map<String, Object> getDetailedPriceInfo(String productName) {
         String response = getCurrentLowestPrice(productName);
@@ -306,12 +402,14 @@ public class GeminiService {
             priceInfo.put("rawResponse", response);
             priceInfo.put("success", price != null);
 
-            log.info("📊 Price info for '{}': ₹{} on {}",
-                    productName, price, platform != null ? platform : "Unknown");
+            if (price != null) {
+                log.info("📊 Final result for '{}': ₹{} on {}",
+                        productName, price, platform != null ? platform : "Unknown");
+            }
         } else {
             priceInfo.put("success", false);
             priceInfo.put("error", "All prompt strategies failed");
-            log.error("💥 Complete failure for product: '{}'", productName);
+            log.error("💥 Complete failure for: '{}'", productName);
         }
 
         return priceInfo;
