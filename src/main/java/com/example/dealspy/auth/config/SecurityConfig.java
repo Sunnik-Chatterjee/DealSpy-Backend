@@ -29,7 +29,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(firebaseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/auth/**", "/", "/error","/products/update-prices").permitAll()
+                        .requestMatchers("/auth/**", "/", "/error","/products/**").permitAll()
                         .anyRequest().authenticated()
                 );
 
