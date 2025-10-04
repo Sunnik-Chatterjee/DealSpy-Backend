@@ -33,7 +33,7 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
         // Skip authentication for auth endpoints
         String requestPath = request.getRequestURI();
         if (requestPath.startsWith("/auth/") ||
-                requestPath.equals("/") || requestPath.startsWith("/error") || requestPath.equals("/products/update-prices")) {
+                requestPath.equals("/") || requestPath.startsWith("/error") || requestPath.equals("/products/")) {
             filterChain.doFilter(request, response);
             return;
         }
