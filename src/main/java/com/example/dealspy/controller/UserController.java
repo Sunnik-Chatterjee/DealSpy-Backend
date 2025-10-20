@@ -43,6 +43,21 @@ public class UserController {
         }
     }
 
+    @DeleteMapping("/profile")
+    public ApiResponse<String> deleteUserProfile() {
+        try {
+            String uid = AuthUtils.getCurrentUserId();
+            boolean deleted = userService.deleteUser(uid);
+
+            if (deleted) {
+                return new ApiResponse<>(true, "User profile deleted successfully", "Profile removed");
+            } else {
+                return new ApiResponse<>(false, "User profile not found", null);
+            }
+        } catch (Exception e) {
+            return new ApiResponse<>(false, "Failed to delete profile: " + e.getMessage(), null);
+        }
+    }
 
 
     @GetMapping("/watchlist")
@@ -71,7 +86,6 @@ public class UserController {
     }
 
 
-    // GET SaveForLater
     @GetMapping("/saveforlater")
     public ResponseEntity<ApiResponse<List<SaveForLaterDTO>>> getSaveForLater() {
         String uid = AuthUtils.getCurrentUserId();
@@ -85,7 +99,6 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    // POST SaveForLater
     @PostMapping("/saveforlater")
     public ResponseEntity<ApiResponse<Void>> addToSaveForLater(@RequestBody SaveForLaterDTO dto) {
         String uid = AuthUtils.getCurrentUserId();
@@ -100,7 +113,6 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    // DELETE SaveForLater
     @DeleteMapping("/saveforlater/{productName}")
     public ResponseEntity<ApiResponse<Void>> deleteFromSaveForLater(@PathVariable String productName) {
         String uid = AuthUtils.getCurrentUserId();
@@ -126,6 +138,4 @@ public class UserController {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Failed to update FCM token", null));
         }
     }
-
-
 }

@@ -9,6 +9,7 @@ import com.example.dealspy.repo.SaveForLaterRepo;
 import com.example.dealspy.repo.UserRepo;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,26 +21,15 @@ import java.util.Optional;
 @Slf4j
 public class SaveForLaterService {
 
-    private final UserRepo userRepo;
-    private final SaveForLaterRepo saveForLaterRepo;
-    private final SaveForLaterMapper mapper;
-    private final ProductService productService;
+    @Autowired
+    private UserRepo userRepo;
+    @Autowired
+    private SaveForLaterRepo saveForLaterRepo;
+    @Autowired
+    private SaveForLaterMapper mapper;
+    @Autowired
+    private ProductService productService;
 
-    public SaveForLaterService(UserRepo userRepo,
-                               SaveForLaterRepo saveForLaterRepo,
-                               SaveForLaterMapper mapper,
-                               ProductService productService) {
-        this.userRepo = userRepo;
-        this.saveForLaterRepo = saveForLaterRepo;
-        this.mapper = mapper;
-        this.productService = productService;
-    }
-
-    /**
-     * Get user's save for later items
-     * @param uid User ID
-     * @return List of SaveForLaterDTO
-     */
     public List<SaveForLaterDTO> getUserSaveForLater(String uid) {
         User user = userRepo.findById(uid)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
@@ -52,36 +42,23 @@ public class SaveForLaterService {
                 .toList();
     }
 
-    /**
-     * Add product to save for later
-     * @param uid User ID
-     * @param dto SaveForLaterDTO containing product details
-     * @return Success message
-     */
     @Transactional
     public String addToSaveForLater(String uid, SaveForLaterDTO dto) {
         try {
             log.info("Adding to save for later - User: {}, Product: {}", uid, dto.getProductName());
-
-            // Find user
             User user = userRepo.findById(uid)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
-
-            // Find or create product using ProductService
             Product product = productService.findOrCreateProduct(
                     dto.getProductName(),
-                    dto.getImageUrl(),
-                    dto.getDesc()
+                    dto.getImageUrl()
             );
 
-            // Check if already exists
             Optional<SaveForLater> existing = saveForLaterRepo.findByUserAndProduct(user, product);
             if (existing.isPresent()) {
                 log.info("Product already in save for later - User: {}, Product: {}", uid, dto.getProductName());
                 return "Product already in save for later";
             }
 
-            // Create save for later entry
             SaveForLater saveForLater = new SaveForLater();
             saveForLater.setUser(user);
             saveForLater.setProduct(product);
@@ -102,12 +79,6 @@ public class SaveForLaterService {
             throw new RuntimeException("Failed to add to save for later: " + e.getMessage());
         }
     }
-
-    /**
-     * Remove product from save for later
-     * @param uid User ID
-     * @param productName Product name to remove
-     */
     @Transactional
     public void deleteFromSaveForLater(String uid, String productName) {
         if (uid == null || productName == null) {
@@ -131,32 +102,4 @@ public class SaveForLaterService {
                 uid, productName, product.getPid());
     }
 
-    /**
-     * Clear all save for later items for a user
-     * @param uid User ID
-     */
-    @Transactional
-    public void clearAllSaveForLater(String uid) {
-        if (uid == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
-        }
-
-        log.info("Clearing all save for later items for user: {}", uid);
-
-        int deletedCount = saveForLaterRepo.deleteByUserUid(uid);
-
-        log.info("Cleared {} save for later items for user: {}", deletedCount, uid);
-    }
-
-    /**
-     * Get count of save for later items for a user
-     * @param uid User ID
-     * @return Count of items
-     */
-    public long getSaveForLaterCount(String uid) {
-        User user = userRepo.findById(uid)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
-
-        return saveForLaterRepo.countByUser(user);
-    }
 }

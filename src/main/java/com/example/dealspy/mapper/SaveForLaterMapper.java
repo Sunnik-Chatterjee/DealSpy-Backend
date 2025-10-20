@@ -13,12 +13,10 @@ public interface SaveForLaterMapper {
 
     @Mapping(source = "product.name", target = "productName")
     @Mapping(source = "product.imageUrl", target = "imageUrl")
-    @Mapping(source = "product.desc", target = "desc")
     SaveForLaterDTO toDTO(SaveForLater saveForLater);
 
     @Mapping(source = "product.name", target = "productName")
     @Mapping(source = "product.imageUrl", target = "imageUrl")
-    @Mapping(source = "product.desc", target = "desc")
     SaveForLaterResponseDTO toResponseDTO(SaveForLater saveForLater);
 
     List<SaveForLaterDTO> toDTOList(List<SaveForLater> saveForLaterList);

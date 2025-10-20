@@ -71,8 +71,7 @@ public class WatchListService {
             // Find or create product using ProductService
             Product product = productService.findOrCreateProduct(
                     watchlistDTO.getProductName(),
-                    watchlistDTO.getImageUrl(),
-                    watchlistDTO.getDesc()
+                    watchlistDTO.getImageUrl()
             );
 
             // Check if already exists

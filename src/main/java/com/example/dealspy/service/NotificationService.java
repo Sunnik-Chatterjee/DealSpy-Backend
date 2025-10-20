@@ -15,30 +15,13 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class NotificationService {
 
-    private final WatchListRepo watchListRepo;  // ✅ Constructor injection
+    private final WatchListRepo watchListRepo;
     private final FCMService fcmService;
 
     public NotificationService(WatchListRepo watchListRepo, FCMService fcmService) {
         this.watchListRepo = watchListRepo;
         this.fcmService = fcmService;
     }
-
-    public void notifyUsersForProductPriceDrop(Product product) {
-        List<User> users = watchListRepo.findUsersByProductId(product.getPid());
-
-        for (User user : users) {
-            String fcmToken = user.getFcmToken();
-            if (fcmToken != null) {
-                fcmService.sendNotificationToToken(
-                        fcmToken,
-                        "Price Dropped!",
-                        "Price of " + product.getName() + " has dropped to ₹" + product.getCurrentPrice()
-                );
-            }
-        }
-    }
-
-    // ✅ ADD THIS METHOD - ProductService calls this (using Double)
     @Async
     public CompletableFuture<Void> notifyPriceDropAsync(Integer productId, String productName, Double newPrice) {
         log.info("Processing price drop notification for product: {} (ID: {})", productName, productId);
