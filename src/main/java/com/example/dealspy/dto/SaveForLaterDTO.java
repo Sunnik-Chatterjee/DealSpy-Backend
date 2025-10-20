@@ -12,5 +12,4 @@ import java.time.LocalDate;
 public class SaveForLaterDTO {
     private String productName;
     private String imageUrl;
-    private String desc;
 }

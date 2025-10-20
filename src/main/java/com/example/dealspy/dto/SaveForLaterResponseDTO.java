@@ -10,6 +10,5 @@ import lombok.NoArgsConstructor;
 public class SaveForLaterResponseDTO {
     private String productName;
     private String imageUrl;
-    private String desc;
     private String deepLink;
 }

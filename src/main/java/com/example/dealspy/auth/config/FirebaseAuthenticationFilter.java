@@ -30,7 +30,6 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        // Skip authentication for auth endpoints
         String requestPath = request.getRequestURI();
         if (requestPath.startsWith("/auth/") ||
                 requestPath.equals("/") || requestPath.startsWith("/error") || requestPath.startsWith("/products/")) {

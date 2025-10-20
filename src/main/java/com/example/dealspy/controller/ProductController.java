@@ -24,21 +24,18 @@ public class ProductController {
     @Autowired
     private ProductRepo productRepo;
 
-    // ✅ Your existing endpoint (won't work due to API quota)
     @PostMapping("/update-prices")
     public ResponseEntity<String> updatePrices() {
         productService.updateAllProductPrices();
         return ResponseEntity.ok("Prices updated and notifications sent.");
     }
 
-    // ✅ NEW: Manual price update (bypasses Gemini API)
     @PostMapping("/manual-price-update/{productId}/{newPrice}")
     public ResponseEntity<String> manualPriceUpdate(
             @PathVariable Integer productId,
             @PathVariable Double newPrice) {
 
         try {
-            // This uses your existing ProductService method that handles notifications
             productService.updateProductPrice(productId, newPrice);
             return ResponseEntity.ok("Price updated to ₹" + newPrice + " and notifications sent!");
         } catch (Exception e) {
@@ -46,7 +43,6 @@ public class ProductController {
         }
     }
 
-    // ✅ NEW: Direct notification test (bypasses price logic)
     @PostMapping("/test-notification/{productId}")
     public ResponseEntity<String> testNotification(@PathVariable Integer productId) {
         try {
@@ -54,7 +50,6 @@ public class ProductController {
             if (productOpt.isPresent()) {
                 Product product = productOpt.get();
 
-                // Directly trigger notification
                 notificationService.notifyPriceDropAsync(
                         product.getPid(),
                         product.getName(),
@@ -69,14 +64,12 @@ public class ProductController {
         }
     }
 
-    // ✅ NEW: Get product details for testing
     @GetMapping("/{productId}")
     public ResponseEntity<Product> getProduct(@PathVariable Integer productId) {
         Optional<Product> product = productRepo.findById(productId);
         return product.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
-    // ✅ NEW: List all products for testing
     @GetMapping("/list")
     public ResponseEntity<?> listProducts() {
         return ResponseEntity.ok(productRepo.findAll());
