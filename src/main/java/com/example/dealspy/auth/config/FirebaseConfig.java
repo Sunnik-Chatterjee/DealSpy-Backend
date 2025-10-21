@@ -19,16 +19,30 @@ public class FirebaseConfig {
     private String firebaseConfigPath;
 
     @PostConstruct
-    public void initialize() throws IOException {
+    public void initialize() {
         try (InputStream serviceAccount = new FileInputStream(firebaseConfigPath)) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
             FirebaseApp.initializeApp(options);
-            System.out.println("Firebase initialized successfully from: " + firebaseConfigPath);
+            System.out.println("✅ Firebase initialized successfully from: " + firebaseConfigPath);
         } catch (FileNotFoundException e) {
-            throw new RuntimeException("Firebase credentials not found at: " + firebaseConfigPath, e);
+            System.err.println("❌ Firebase credentials file NOT FOUND at: " + firebaseConfigPath);
+            System.err.println("Available files in /etc/secrets/:");
+            File secretsDir = new File("/etc/secrets");
+            if (secretsDir.exists() && secretsDir.isDirectory()) {
+                String[] files = secretsDir.list();
+                if (files != null) {
+                    for (String file : files) {
+                        System.err.println("  - " + file);
+                    }
+                }
+            }
+            throw new RuntimeException("Firebase initialization failed - credentials not found", e);
+        } catch (IOException e) {
+            System.err.println("❌ Failed to read Firebase credentials: " + e.getMessage());
+            throw new RuntimeException("Firebase initialization failed", e);
         }
     }
 }
