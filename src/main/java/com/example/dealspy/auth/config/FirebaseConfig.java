@@ -3,9 +3,13 @@ package com.example.dealspy.auth.config;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import jakarta.annotation.PostConstruct;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -19,31 +23,26 @@ public class FirebaseConfig {
     @Value("${firebase.config.path}")
     private String firebaseConfigPath;
 
-    @PostConstruct
-    public void initialize() {
-        try (InputStream serviceAccount = new FileInputStream(firebaseConfigPath)) {
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .build();
+    private static final Logger logger = LoggerFactory.getLogger(FirebaseConfig.class);
 
-            FirebaseApp.initializeApp(options);
-            System.out.println("✅ Firebase initialized successfully from: " + firebaseConfigPath);
-        } catch (FileNotFoundException e) {
-            System.err.println("❌ Firebase credentials file NOT FOUND at: " + firebaseConfigPath);
-            System.err.println("Available files in /etc/secrets/:");
-            File secretsDir = new File("/etc/secrets");
-            if (secretsDir.exists() && secretsDir.isDirectory()) {
-                String[] files = secretsDir.list();
-                if (files != null) {
-                    for (String file : files) {
-                        System.err.println("  - " + file);
-                    }
-                }
-            } // ✅ Added missing closing brace
-            throw new RuntimeException("Firebase initialization failed - credentials not found", e);
-        } catch (IOException e) { // ✅ Added missing closing brace
-            System.err.println("❌ Failed to read Firebase credentials: " + e.getMessage());
-            throw new RuntimeException("Firebase initialization failed", e);
+    @Bean
+    public FirebaseApp firebaseApp() throws IOException {
+        if (FirebaseApp.getApps().isEmpty()) {
+            try {
+                InputStream serviceAccount = new ClassPathResource(firebaseConfigPath).getInputStream();
+
+                FirebaseOptions options = FirebaseOptions.builder()
+                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                        .build();
+
+                FirebaseApp app = FirebaseApp.initializeApp(options);
+                logger.info("Firebase Admin SDK initialized successfully");
+                return app;
+            } catch (IOException e) {
+                logger.error("Failed to initialize Firebase Admin SDK", e);
+                throw e;
+            }
         }
+        return FirebaseApp.getInstance();
     }
 }
