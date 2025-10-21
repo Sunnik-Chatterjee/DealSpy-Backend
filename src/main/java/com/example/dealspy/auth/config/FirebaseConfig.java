@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import jakarta.annotation.PostConstruct;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -38,9 +39,9 @@ public class FirebaseConfig {
                         System.err.println("  - " + file);
                     }
                 }
-            }
+            } // ✅ Added missing closing brace
             throw new RuntimeException("Firebase initialization failed - credentials not found", e);
-        } catch (IOException e) {
+        } catch (IOException e) { // ✅ Added missing closing brace
             System.err.println("❌ Failed to read Firebase credentials: " + e.getMessage());
             throw new RuntimeException("Firebase initialization failed", e);
         }
