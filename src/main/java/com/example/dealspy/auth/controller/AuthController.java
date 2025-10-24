@@ -12,6 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -21,92 +24,102 @@ public class AuthController {
     @Autowired
     private UserService userService;
 
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> healthCheck() {
+        Map<String, Object> health = new HashMap<>();
+
+        try {
+            // Check Firebase initialization
+            if (FirebaseApp.getApps().isEmpty()) {
+                health.put("firebase", "NOT_INITIALIZED");
+                health.put("status", "ERROR");
+                return ResponseEntity.status(500).body(health);
+            }
+
+            // Try to access Firebase Auth
+            FirebaseAuth.getInstance();
+            health.put("firebase", "CONNECTED");
+
+            // Try a simple operation
+            FirebaseAuth.getInstance().listUsers(null, 1);
+            health.put("firebase_auth", "WORKING");
+            health.put("status", "OK");
+
+            return ResponseEntity.ok(health);
+
+        } catch (Exception e) {
+            health.put("firebase", "ERROR");
+            health.put("error", e.getMessage());
+            health.put("status", "ERROR");
+            return ResponseEntity.status(500).body(health);
+        }
+    }
+
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<String>> verifyUser(
             @RequestHeader("Authorization") String authHeader,
             @RequestHeader(value = "X-FCM-TOKEN", required = false) String fcmToken) {
 
         try {
-            logger.info("=== VERIFY ENDPOINT CALLED ===");
-
-            // CRITICAL: Check if Firebase is initialized
+            // Check Firebase initialization
             if (FirebaseApp.getApps().isEmpty()) {
-                logger.error("❌ Firebase is NOT initialized! Cannot verify users.");
-                return ResponseEntity.status(500).body(
-                        new ApiResponse<>(false, "Server configuration error - Firebase not initialized", null)
-                );
+                logger.error("Firebase not initialized");
+                return errorResponse(500, "Server configuration error - Firebase not initialized");
             }
 
-            logger.info("✅ Firebase is initialized. Apps count: {}", FirebaseApp.getApps().size());
-
-            // Validate Authorization header
+            // Validate and extract token
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                logger.warn("❌ Invalid Authorization header received");
-                return ResponseEntity.badRequest().body(
-                        new ApiResponse<>(false, "Missing or invalid Authorization header", null)
-                );
+                logger.warn("Invalid Authorization header");
+                return errorResponse(400, "Missing or invalid Authorization header");
             }
 
-            // Extract token
             String token = authHeader.substring(7);
-            logger.info("Token extracted, length: {}", token.length());
 
             // Verify Firebase token
-            FirebaseToken decodedToken;
-            try {
-                decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
-                logger.info("✅ Token verified successfully");
-            } catch (FirebaseAuthException e) {
-                logger.warn("❌ Firebase authentication failed: {} - {}", e.getAuthErrorCode(), e.getMessage());
-                return ResponseEntity.status(401).body(
-                        new ApiResponse<>(false, "Invalid or expired Firebase token", null)
-                );
-            }
+            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
 
-            // Extract user info
             String uid = decodedToken.getUid();
             String name = decodedToken.getName();
             String email = decodedToken.getEmail();
 
-            logger.info("User info - UID: {}, Email: {}, Name: {}", uid, email, name);
+            logger.info("User verified - UID: {}, Email: {}", uid, email);
 
-            // Save or update user in database
-            try {
-                if (!userService.isUserExist(uid)) {
-                    userService.addUserDetails(uid, email, name, fcmToken);
-                    logger.info("✅ New user saved to DB: {}", uid);
-                } else {
-                    logger.info("User already exists in DB: {}", uid);
-                    if (fcmToken != null && !fcmToken.isEmpty()) {
-                        userService.updateUserFcmToken(uid, fcmToken);
-                        logger.info("✅ FCM token updated for user: {}", uid);
-                    }
-                }
-            } catch (Exception dbException) {
-                logger.error("❌ Database operation failed", dbException);
-                return ResponseEntity.status(500).body(
-                        new ApiResponse<>(false, "Database error: " + dbException.getMessage(), null)
-                );
-            }
+            // Handle user database operations
+            handleUserDatabase(uid, email, name, fcmToken);
 
-            logger.info("=== VERIFY COMPLETED SUCCESSFULLY ===");
             return ResponseEntity.ok(
                     new ApiResponse<>(true, "User authenticated successfully", null)
             );
 
+        } catch (FirebaseAuthException e) {
+            logger.warn("Firebase auth failed: {}", e.getMessage());
+            return errorResponse(401, "Invalid or expired Firebase token");
         } catch (IllegalStateException e) {
-            logger.error("❌ Firebase IllegalStateException - Firebase not properly initialized", e);
-            return ResponseEntity.status(500).body(
-                    new ApiResponse<>(false, "Server configuration error - Firebase initialization failed", null)
-            );
+            logger.error("Firebase initialization error", e);
+            return errorResponse(500, "Server configuration error - Firebase initialization failed");
         } catch (Exception e) {
-            logger.error("❌ Unexpected error during authentication", e);
-            logger.error("Error type: {}", e.getClass().getName());
-            logger.error("Error message: {}", e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(
-                    new ApiResponse<>(false, "Authentication failed: " + e.getMessage(), null)
-            );
+            logger.error("Unexpected error during authentication", e);
+            return errorResponse(500, "Authentication failed: " + e.getMessage());
         }
+    }
+
+    private void handleUserDatabase(String uid, String email, String name, String fcmToken) {
+        try {
+            if (!userService.isUserExist(uid)) {
+                userService.addUserDetails(uid, email, name, fcmToken);
+                logger.info("New user saved: {}", uid);
+            } else if (fcmToken != null && !fcmToken.isEmpty()) {
+                userService.updateUserFcmToken(uid, fcmToken);
+                logger.info("FCM token updated for: {}", uid);
+            }
+        } catch (Exception e) {
+            logger.error("Database operation failed", e);
+            throw new RuntimeException("Database error: " + e.getMessage());
+        }
+    }
+
+    private ResponseEntity<ApiResponse<String>> errorResponse(int status, String message) {
+        return ResponseEntity.status(status)
+                .body(new ApiResponse<>(false, message, null));
     }
 }
