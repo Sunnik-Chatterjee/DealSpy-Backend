@@ -35,7 +35,7 @@ public class GeminiService {
 
 
     public void updateAllProductPricesAndDeepLinks() {
-        log.info("🚀 Starting comprehensive product price and deep link update using Gemini web search...");
+        log.info("Starting comprehensive product price and deep link update using Gemini web search...");
 
         List<Product> allProducts = productRepo.findAll();
         int successCount = 0;
@@ -243,7 +243,7 @@ public class GeminiService {
         };
         for (String platform : platforms) {
             if (response.toLowerCase().contains(platform.toLowerCase())) {
-                log.debug("🏪 Found platform: {}", platform);
+                log.debug("Found platform: {}", platform);
                 return platform;
             }
         }

@@ -14,4 +14,5 @@ public class WatchlistDTO {
     private LocalDate watchEndDate;
     private String imageUrl;
     private String desc;
+    private String deepLink;
 }

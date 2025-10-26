@@ -71,7 +71,8 @@ public class WatchListService {
             // Find or create product using ProductService
             Product product = productService.findOrCreateProduct(
                     watchlistDTO.getProductName(),
-                    watchlistDTO.getImageUrl()
+                    watchlistDTO.getImageUrl(),
+                    watchlistDTO.getDeepLink()
             );
 
             // Check if already exists
@@ -102,11 +103,6 @@ public class WatchListService {
         }
     }
 
-    /**
-     * Remove product from watchlist
-     * @param uid User ID
-     * @param productName Product name to remove
-     */
     @Transactional
     public void deleteFromWatchList(String uid, String productName) {
         if (uid == null || productName == null) {
@@ -130,10 +126,6 @@ public class WatchListService {
                 uid, productName, product.getPid());
     }
 
-    /**
-     * Remove expired watchlist items
-     * @return Number of removed items
-     */
     @Transactional
     public int removeExpiredWatchlistItems() {
         LocalDate today = LocalDate.now();
@@ -153,10 +145,6 @@ public class WatchListService {
         return expiredCount;
     }
 
-    /**
-     * Get watchlist items expiring soon (within next 3 days)
-     * @return List of watchlist items expiring soon
-     */
     public List<WatchlistResponseDTO> getWatchlistExpiringSoon() {
         LocalDate today = LocalDate.now();
         LocalDate threeDaysFromNow = today.plusDays(3);
@@ -169,10 +157,6 @@ public class WatchListService {
                 .toList();
     }
 
-    /**
-     * Clear all watchlist items for a user
-     * @param uid User ID
-     */
     @Transactional
     public void clearAllWatchlist(String uid) {
         if (uid == null) {
@@ -186,11 +170,6 @@ public class WatchListService {
         log.info("Cleared {} watchlist items for user: {}", deletedCount, uid);
     }
 
-    /**
-     * Get count of watchlist items for a user
-     * @param uid User ID
-     * @return Count of items
-     */
     public long getWatchlistCount(String uid) {
         User user = userRepo.findById(uid)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
@@ -198,12 +177,6 @@ public class WatchListService {
         return watchListRepo.countByUser(user);
     }
 
-    /**
-     * Extend watchlist end date for a product
-     * @param uid User ID
-     * @param productName Product name
-     * @param newEndDate New end date
-     */
     @Transactional
     public void extendWatchlistEndDate(String uid, String productName, LocalDate newEndDate) {
         if (uid == null || productName == null || newEndDate == null) {

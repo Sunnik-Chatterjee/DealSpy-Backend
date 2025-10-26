@@ -34,7 +34,7 @@ public class NotificationService {
                 return CompletableFuture.completedFuture(null);
             }
 
-            String title = "🎉 Price Drop Alert!";
+            String title = "Price Drop Alert!";
             String body = String.format("Price of %s has dropped to ₹%.2f", productName, newPrice);
 
             for (User user : users) {
