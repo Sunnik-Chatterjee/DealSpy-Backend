@@ -47,7 +47,7 @@ public class ProductService {
 
     @Transactional
     public void updateAllProductPrices() {
-        log.info("🚀 Starting comprehensive price update using GeminiService...");
+        log.info("Starting comprehensive price update using GeminiService...");
 
         try {
             geminiService.updateAllProductPricesAndDeepLinks();
@@ -102,7 +102,7 @@ public class ProductService {
                     product.setIsPriceDropped(true);
                     priceDropped = true;
 
-                    log.info("💰 Price drop detected for '{}': ₹{} -> ₹{} from {}",
+                    log.info("Price drop detected for '{}': ₹{} -> ₹{} from {}",
                             product.getName(), oldPrice, newPrice, result.getPlatform());
                 } else {
                     product.setIsPriceDropped(false);
@@ -173,7 +173,7 @@ public class ProductService {
         try {
             List<Product> productsWithDrops = getProductsWithPriceDrop();
 
-            log.info("📢 Sending notifications for {} products with price drops", productsWithDrops.size());
+            log.info("Sending notifications for {} products with price drops", productsWithDrops.size());
 
             for (Product product : productsWithDrops) {
                 if (product.getCurrentPrice() != null) {
@@ -263,7 +263,7 @@ public class ProductService {
 
     @Scheduled(fixedRate = 14400000)
     public void scheduledPriceUpdate() {
-        log.info("🕐 Starting scheduled comprehensive price update");
+        log.info("Starting scheduled comprehensive price update");
         try {
             updateAllProductPrices();
         } catch (Exception e) {
@@ -317,7 +317,7 @@ public class ProductService {
         return productRepo.findByName(productName.trim()).isPresent();
     }
 
-    public Product findOrCreateProduct(String productName, String imageUrl) {
+    public Product findOrCreateProduct(String productName, String imageUrl, String deepLink) {
         if (productName == null || productName.trim().isEmpty()) {
             throw new IllegalArgumentException("Product name cannot be null or empty");
         }
@@ -332,6 +332,7 @@ public class ProductService {
         Product newProduct = new Product();
         newProduct.setName(productName.trim());
         newProduct.setImageUrl(imageUrl);
+        newProduct.setDeepLink(deepLink);
         parseAndSetProductDetails(newProduct);
 
         return productRepo.save(newProduct);

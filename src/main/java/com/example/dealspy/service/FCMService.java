@@ -32,7 +32,6 @@ public class FCMService {
         }
     }
 
-    // ✅ ADD THIS METHOD - UserService calls this
     @Async
     public CompletableFuture<Void> sendNotificationToTokenAsync(String token, String title, String body) {
         sendNotificationToToken(token, title, body);

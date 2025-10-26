@@ -50,7 +50,8 @@ public class SaveForLaterService {
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
             Product product = productService.findOrCreateProduct(
                     dto.getProductName(),
-                    dto.getImageUrl()
+                    dto.getImageUrl(),
+                    dto.getDeepLink()
             );
 
             Optional<SaveForLater> existing = saveForLaterRepo.findByUserAndProduct(user, product);
