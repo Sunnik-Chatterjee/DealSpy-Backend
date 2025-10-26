@@ -13,7 +13,6 @@ public interface SaveForLaterMapper {
 
     @Mapping(source = "product.name", target = "productName")
     @Mapping(source = "product.imageUrl", target = "imageUrl")
-    @Mapping(source = "product.imageUrl", target = "imageUrl")
     @Mapping(source = "product.deepLink",target ="deepLink")
     SaveForLaterDTO toDTO(SaveForLater saveForLater);
 
