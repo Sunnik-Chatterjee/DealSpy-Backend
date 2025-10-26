@@ -36,11 +36,6 @@ public class WatchListService {
         this.productService = productService;
     }
 
-    /**
-     * Get user's watchlist items
-     * @param uid User ID
-     * @return List of WatchlistResponseDTO
-     */
     public List<WatchlistResponseDTO> getUserWatchList(String uid) {
         User user = userRepo.findById(uid)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
@@ -53,11 +48,6 @@ public class WatchListService {
                 .toList();
     }
 
-    /**
-     * Add product to watchlist
-     * @param uid User ID
-     * @param watchlistDTO WatchlistDTO containing product details and watch end date
-     */
     @Transactional
     public void addToWatchList(String uid, WatchlistDTO watchlistDTO) {
         try {

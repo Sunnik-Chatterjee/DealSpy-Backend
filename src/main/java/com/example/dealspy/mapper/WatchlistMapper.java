@@ -19,6 +19,7 @@ public interface WatchlistMapper {
     @Mapping(source = "product.imageUrl", target = "imageUrl")
     @Mapping(source = "product.desc", target = "desc")
     @Mapping(source = "watchEndDate", target = "watchEndDate")
+    @Mapping(source = "product.deepLink",target = "deepLink")
     WatchlistDTO toDTO(Watchlist watchlist);
 
     @Mapping(source = "product.name", target = "productName")
