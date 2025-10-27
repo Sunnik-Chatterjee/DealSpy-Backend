@@ -3,6 +3,7 @@ package com.example.dealspy.service;
 import com.example.dealspy.model.Product;
 import com.example.dealspy.repo.ProductRepo;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,17 +19,18 @@ import java.util.concurrent.Executors;
 @Slf4j
 public class ProductService {
 
-    private final ProductRepo productRepo;
-    private final GeminiService geminiService;
-    private final NotificationService notificationService;
+    @Autowired
+    private ProductRepo productRepo;
+    @Autowired
+    private GeminiService geminiService;
+    @Autowired
+    private NotificationService notificationService;
+
     private final ExecutorService executorService;
 
     public ProductService(ProductRepo productRepo,
                           GeminiService geminiService,
                           NotificationService notificationService) {
-        this.productRepo = productRepo;
-        this.geminiService = geminiService;
-        this.notificationService = notificationService;
         this.executorService = Executors.newFixedThreadPool(5);
     }
 
@@ -136,37 +138,67 @@ public class ProductService {
     }
 
     private GeminiService.PriceSearchResult performSingleProductSearch(String productName) {
-        try {
-            Product tempProduct = new Product();
-            tempProduct.setName(productName);
+        if (productName == null || productName.trim().isEmpty()) {
+            log.warn("Invalid product name provided for search");
+            return null;
+        }
 
+        try {
+            log.debug("Performing single product search for: {}", productName);
+
+            Optional<Product> existingProduct = productRepo.findByName(productName.trim());
             Double originalPrice = null;
             String originalDeepLink = null;
 
+            if (existingProduct.isPresent()) {
+                originalPrice = existingProduct.get().getCurrentPrice();
+                originalDeepLink = existingProduct.get().getDeepLink();
+                log.debug("Found existing product data - Price: ₹{}, DeepLink: {}",
+                        originalPrice, originalDeepLink != null ? "present" : "absent");
+            }
+            GeminiService.PriceSearchResult result = geminiService.searchLowestPriceWithDeepLink(productName);
 
-            Optional<Product> actualProduct = productRepo.findByName(productName);
-            if (actualProduct.isPresent()) {
-                originalPrice = actualProduct.get().getCurrentPrice();
-                originalDeepLink = actualProduct.get().getDeepLink();
+            if (result != null && result.isSuccess()) {
+                log.info("Successfully found price and deepLink for '{}': ₹{} from {} with deepLink",
+                        productName, result.getLowestPrice(), result.getPlatform());
+                return result;
+            } else {
+                log.warn("Gemini search failed for '{}', no valid price/deepLink found", productName);
+                if (originalPrice != null || originalDeepLink != null) {
+                    log.debug("Using existing data as fallback for '{}'", productName);
+                    return new GeminiService.PriceSearchResult(
+                            originalPrice,
+                            "Existing",
+                            originalDeepLink,
+                            originalPrice != null
+                    );
+                }
+
+                return null;
             }
 
-            String cleanName = cleanProductName(productName);
-            String prompt = String.format("find lowest current price %s online shopping Flipkart Amazon Myntra Nykaa Ajio Blinkit Mamaearth Shopsy with buy link ₹", cleanName);
-
-            return null;
-
         } catch (Exception e) {
-            log.error("Error performing single product search for '{}': {}", productName, e.getMessage());
+            log.error("Exception during single product search for '{}': {}", productName, e.getMessage(), e);
+            try {
+                Optional<Product> fallbackProduct = productRepo.findByName(productName.trim());
+                if (fallbackProduct.isPresent()) {
+                    Product p = fallbackProduct.get();
+                    if (p.getCurrentPrice() != null || p.getDeepLink() != null) {
+                        log.info("Using existing product data as fallback for '{}' due to search exception", productName);
+                        return new GeminiService.PriceSearchResult(
+                                p.getCurrentPrice(),
+                                "Fallback",
+                                p.getDeepLink(),
+                                p.getCurrentPrice() != null
+                        );
+                    }
+                }
+            } catch (Exception fallbackException) {
+                log.error("Fallback data retrieval also failed for '{}': {}", productName, fallbackException.getMessage());
+            }
+
             return null;
         }
-    }
-
-    private String cleanProductName(String productName) {
-        return productName
-                .replaceAll("\\b(with|and|for|the|in|on|at|of|by|from)\\b", "")
-                .replaceAll("[^a-zA-Z0-9\\s]", "")
-                .replaceAll("\\s+", " ")
-                .trim();
     }
 
     private void sendPriceDropNotifications() {
@@ -340,20 +372,25 @@ public class ProductService {
 
     private void parseAndSetProductDetails(Product product) {
         try {
+            // Initialize only the non-price fields
             product.setLastLowestPrice(null);
-            product.setDeepLink(null);
+            // ✅ REMOVED: product.setDeepLink(null); - Don't nullify the deepLink!
             product.setIsPriceDropped(null);
 
-            log.debug("Product details set for: {} with initial price: ₹{}",
-                    product.getName(), product.getCurrentPrice());
+            log.debug("Product details initialized for: {} with deepLink: {}",
+                    product.getName(), product.getDeepLink());
 
         } catch (Exception e) {
             log.error("Error parsing product details for: {}", product.getName(), e);
 
-            product.setCurrentPrice(0.0);
+            // ✅ On exception: Only set safe defaults, don't change price or deepLink
             product.setLastLowestPrice(null);
-            product.setDeepLink(null);
             product.setIsPriceDropped(null);
+            // ✅ REMOVED: product.setCurrentPrice(0.0); - Don't change price on exception
+            // ✅ REMOVED: product.setDeepLink(null);   - Don't nullify deepLink on exception
+
+            log.warn("Using default values for product: {}, preserving existing price and deepLink",
+                    product.getName());
         }
     }
 }

@@ -85,6 +85,40 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    @DeleteMapping("/watchlist/clear")
+    public ResponseEntity<ApiResponse<String>> clearAllWatchlist() {
+        try {
+            String uid = AuthUtils.getCurrentUserId();
+
+            // Call the service method you provided
+            watchListService.clearAllWatchlist(uid);
+
+            ApiResponse<String> response = new ApiResponse<>(
+                    true,
+                    "All watchlist items cleared successfully",
+                    "Watchlist emptied"
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            ApiResponse<String> response = new ApiResponse<>(
+                    false,
+                    "Invalid request: " + e.getMessage(),
+                    null
+            );
+            return ResponseEntity.badRequest().body(response);
+
+        } catch (Exception e) {
+            ApiResponse<String> response = new ApiResponse<>(
+                    false,
+                    "Failed to clear watchlist: " + e.getMessage(),
+                    null
+            );
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
 
     @GetMapping("/saveforlater")
     public ResponseEntity<ApiResponse<List<SaveForLaterDTO>>> getSaveForLater() {
@@ -127,15 +161,4 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/fcm-token")
-    public ResponseEntity<ApiResponse<String>> updateFcmToken(@RequestBody String fcmToken) {
-        String uid = AuthUtils.getCurrentUserId();
-        boolean updated = userService.updateUserFcmToken(uid, fcmToken);
-
-        if (updated) {
-            return ResponseEntity.ok(new ApiResponse<>(true, "FCM token updated successfully", null));
-        } else {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Failed to update FCM token", null));
-        }
-    }
 }

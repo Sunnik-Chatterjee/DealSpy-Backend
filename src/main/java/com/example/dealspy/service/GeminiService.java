@@ -5,6 +5,7 @@ import com.example.dealspy.repo.ProductRepo;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +34,6 @@ public class GeminiService {
     private final RestTemplate restTemplate = new RestTemplate();
 
 
-
     public void updateAllProductPricesAndDeepLinks() {
         log.info("Starting comprehensive product price and deep link update using Gemini web search...");
 
@@ -43,7 +43,7 @@ public class GeminiService {
 
         for (Product product : allProducts) {
             try {
-                log.info("🔍 Processing product: {}", product.getName());
+                log.info("Processing product: {}", product.getName());
                 PriceSearchResult result = searchLowestPriceWithDeepLink(product.getName());
 
                 if (result != null && result.isSuccess()) {
@@ -78,7 +78,7 @@ public class GeminiService {
         log.info("Update complete: {} success, {} failures", successCount, failureCount);
     }
 
-    private PriceSearchResult searchLowestPriceWithDeepLink(String productName) {
+    PriceSearchResult searchLowestPriceWithDeepLink(String productName) {
         String prompt = createECommerceSearchPrompt(productName);
 
         String response = callGeminiForWebSearch(prompt);
@@ -91,7 +91,7 @@ public class GeminiService {
     private String createECommerceSearchPrompt(String productName) {
         String cleanName = cleanProductName(productName);
 
-        return String.format("find lowest current price %s online shopping Flipkart Amazon Myntra Nykaa Ajio Blinkit Mamaearth Shopsy with buy link ₹", cleanName);
+        return String.format("find lowest current price %s online shopping Flipkart Amazon Myntra Nykaa Ajio Blinkit Mamaearth Shopsy with buy link ", cleanName);
     }
 
     private String cleanProductName(String productName) {
@@ -172,6 +172,7 @@ public class GeminiService {
         }
         return null;
     }
+
     private PriceSearchResult parseWebSearchResponse(String response) {
         if (response == null || response.isBlank()) {
             return null;
@@ -224,7 +225,8 @@ public class GeminiService {
                             lowestPrice = price;
                         }
                     }
-                } catch (NumberFormatException | IndexOutOfBoundsException e) {}
+                } catch (NumberFormatException | IndexOutOfBoundsException ignored) {
+                }
             }
         }
 
@@ -251,12 +253,40 @@ public class GeminiService {
     }
 
     private String extractDeepLink(String response) {
-        String[] urlPatterns = {
-                "https?://(?:www\\.)?(flipkart\\.com|amazon\\.in|myntra\\.com|nykaa\\.com|ajio\\.com)[^\\s]*",
-                "https?://(?:www\\.)?(blinkit\\.com|mamaearth\\.in|shopsy\\.in|snapdeal\\.com)[^\\s]*",
-                "https?://(?:www\\.)?(paytmmall\\.com|meesho\\.com|tatacliq\\.com)[^\\s]*",
+        if (response == null || response.trim().isEmpty()) {
+            log.warn("Empty response received for deeplink extraction");
+            return null;
+        }
 
-                "https?://[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/[^\\s]*(?:product|item|buy|shop)[^\\s]*"
+        log.debug("Extracting deeplink from response: {}", response.length() > 100 ? response.substring(0, 100) + "..." : response);
+
+        String[] urlPatterns = {
+                "https?://(?:www\\.)?flipkart\\.com[^\\s]*",
+                "https?://dl\\.flipkart\\.com[^\\s]*",
+
+                "https?://(?:www\\.)?amazon\\.in[^\\s]*",
+                "https?://amzn\\.to[^\\s]*",
+
+                "https?://(?:www\\.)?myntra\\.com[^\\s]*",
+                "https?://(?:www\\.)?ajio\\.com[^\\s]*",
+
+                "https?://(?:www\\.)?nykaa\\.com[^\\s]*",
+                "https?://(?:www\\.)?mamaearth\\.in[^\\s]*",
+
+                "https?://(?:www\\.)?blinkit\\.com[^\\s]*",
+                "https?://(?:www\\.)?bigbasket\\.com[^\\s]*",
+                "https?://(?:www\\.)?grofers\\.com[^\\s]*",
+                "https?://(?:www\\.)?jiomart\\.com[^\\s]*",
+
+                "https?://(?:www\\.)?shopsy\\.in[^\\s]*",
+                "https?://(?:www\\.)?snapdeal\\.com[^\\s]*",
+                "https?://(?:www\\.)?paytmmall\\.com[^\\s]*",
+                "https?://(?:www\\.)?meesho\\.com[^\\s]*",
+                "https?://(?:www\\.)?tatacliq\\.com[^\\s]*",
+                "https?://(?:www\\.)?reliancedigital\\.in[^\\s]*",
+                "https?://(?:www\\.)?croma\\.com[^\\s]*",
+
+                "https?://[a-zA-Z0-9\\-\\.]+\\.[a-zA-Z]{2,}[^\\s]*(?:product|item|buy|shop|deal)[^\\s]*"
         };
 
         for (String pattern : urlPatterns) {
@@ -265,30 +295,39 @@ public class GeminiService {
 
             if (matcher.find()) {
                 String url = matcher.group().trim();
-                url = url.replaceAll("[.,;!?\\)\\]}>\\\"']*$", ""); // Remove trailing punctuation
+
+                url = url.replaceAll("[.,!?;]+$", "");
 
                 if (isValidECommerceUrl(url)) {
-                    log.info("🔗 Found deep link: {}", url);
-                    return cleanUrl(url);
+                    String cleanedUrl = cleanUrl(url);
+                    log.info("🔗 Found deep link from {}: {}",
+                            extractDomainFromUrl(cleanedUrl), cleanedUrl);
+                    return cleanedUrl;
+                } else {
+                    log.debug("Invalid e-commerce URL found: {}", url);
                 }
             }
         }
 
+        log.warn("No valid deeplink found in response");
         return null;
     }
 
-    private boolean isValidPrice(double price) {
-        return price >= 10 && price <= 1000000;
-    }
-
     private boolean isValidECommerceUrl(String url) {
-        if (url == null || url.length() < 15) return false;
+        if (url == null || url.length() < 15) {
+            return false;
+        }
 
         String urlLower = url.toLowerCase();
+
         String[] validDomains = {
-                "flipkart.com", "amazon.in", "myntra.com", "nykaa.com", "ajio.com",
-                "blinkit.com", "mamaearth.in", "shopsy.in", "snapdeal.com",
-                "paytmmall.com", "meesho.com", "tatacliq.com", "bigbasket.com"
+                "flipkart.com", "dl.flipkart.com",
+                "amazon.in", "amzn.to",
+                "myntra.com", "ajio.com",
+                "nykaa.com", "mamaearth.in",
+                "blinkit.com", "bigbasket.com", "grofers.com", "jiomart.com",
+                "shopsy.in", "snapdeal.com", "paytmmall.com",
+                "meesho.com", "tatacliq.com", "reliancedigital.in", "croma.com"
         };
 
         for (String domain : validDomains) {
@@ -297,17 +336,56 @@ public class GeminiService {
             }
         }
 
-        return false;
+        return urlLower.matches(".*\\b(product|item|buy|shop|deal|p-|dp/)\\b.*") &&
+                urlLower.matches("https?://[a-zA-Z0-9\\-\\.]+\\.[a-zA-Z]{2,}/.*");
     }
+
     private String cleanUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+
         try {
-            return url.replaceAll("([?&])(utm_[^=]+|affid|pid|iid|tag|camp|adid|gclid|yclid|fbclid|ref)=[^&]*", "")
-                    .replaceAll("[?&]{2,}", "&")
-                    .replaceAll("[?&]$", "");
+            return url
+                    // Remove UTM and tracking parameters
+                    .replaceAll("[?&](utm_[^&]*|ref[^&]*|tag[^&]*|campaign[^&]*|source[^&]*|medium[^&]*)", "")
+                    .replaceAll("[?&](gclid[^&]*|fbclid[^&]*|msclkid[^&]*)", "")
+                    .replaceAll("[?&](pid[^&]*|affid[^&]*|pf_rd_[^&]*)", "")
+                    // Clean up multiple ? or &
+                    .replaceAll("\\?&", "?")
+                    .replaceAll("&&+", "&")
+                    // Remove trailing ? or &
+                    .replaceAll("[?&]$", "")
+                    // Ensure proper URL formatting
+                    .trim();
         } catch (Exception e) {
+            log.warn("Error cleaning URL {}: {}", url, e.getMessage());
             return url;
         }
     }
+
+    private String extractDomainFromUrl(String url) {
+        if (url == null) return "Unknown";
+
+        try {
+            Pattern domainPattern = Pattern.compile("https?://(?:www\\.)?([^/]+)");
+            Matcher matcher = domainPattern.matcher(url);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        } catch (Exception e) {
+            log.debug("Could not extract domain from URL: {}", url);
+        }
+
+        return "Unknown";
+    }
+
+    private boolean isValidPrice(double price) {
+        return price >= 10 && price <= 1000000;
+    }
+
+
+    @Getter
     public static class PriceSearchResult {
         private final Double lowestPrice;
         private final String platform;
@@ -321,9 +399,5 @@ public class GeminiService {
             this.success = success;
         }
 
-        public Double getLowestPrice() { return lowestPrice; }
-        public String getPlatform() { return platform; }
-        public String getDeepLink() { return deepLink; }
-        public boolean isSuccess() { return success; }
     }
 }

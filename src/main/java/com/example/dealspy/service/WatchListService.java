@@ -10,6 +10,7 @@ import com.example.dealspy.repo.UserRepo;
 import com.example.dealspy.repo.WatchListRepo;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,20 +22,14 @@ import java.util.List;
 @Slf4j
 public class WatchListService {
 
-    private final WatchListRepo watchListRepo;
-    private final UserRepo userRepo;
-    private final WatchlistMapper mapper;
-    private final ProductService productService;
-
-    public WatchListService(WatchListRepo watchListRepo,
-                            UserRepo userRepo,
-                            WatchlistMapper mapper,
-                            ProductService productService) {
-        this.watchListRepo = watchListRepo;
-        this.userRepo = userRepo;
-        this.mapper = mapper;
-        this.productService = productService;
-    }
+    @Autowired
+    private WatchListRepo watchListRepo;
+    @Autowired
+    private UserRepo userRepo;
+    @Autowired
+    private WatchlistMapper mapper;
+    @Autowired
+    private ProductService productService;
 
     public List<WatchlistResponseDTO> getUserWatchList(String uid) {
         User user = userRepo.findById(uid)
