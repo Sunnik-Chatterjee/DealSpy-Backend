@@ -11,8 +11,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class WatchlistDTO {
     private String productName;
-    private LocalDate watchEndDate;
+    private String brand;
+    private String platformName;
     private String imageUrl;
-    private String desc;
     private String deepLink;
+    private Double currentPrice;
 }

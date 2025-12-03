@@ -11,6 +11,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class SaveForLaterDTO {
     private String productName;
+    private String brand;
+    private String platformName;
     private String imageUrl;
     private String deepLink;
+    private Double currentPrice;
 }

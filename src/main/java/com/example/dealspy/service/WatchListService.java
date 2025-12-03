@@ -15,7 +15,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -24,10 +23,13 @@ public class WatchListService {
 
     @Autowired
     private WatchListRepo watchListRepo;
+
     @Autowired
     private UserRepo userRepo;
+
     @Autowired
     private WatchlistMapper mapper;
+
     @Autowired
     private ProductService productService;
 
@@ -45,38 +47,44 @@ public class WatchListService {
 
     @Transactional
     public void addToWatchList(String uid, WatchlistDTO watchlistDTO) {
-        try {
-            log.info("Adding to watchlist - User: {}, Product: {}, End Date: {}",
-                    uid, watchlistDTO.getProductName(), watchlistDTO.getWatchEndDate());
+        if (uid == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        if (watchlistDTO == null || watchlistDTO.getProductName() == null) {
+            throw new IllegalArgumentException("WatchlistDTO and product name cannot be null");
+        }
 
-            // Find user
+        try {
+            log.info("Adding to watchlist - User: {}, Product: {}",
+                    uid, watchlistDTO.getProductName());
+
+
             User user = userRepo.findById(uid)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
 
-            // Find or create product using ProductService
             Product product = productService.findOrCreateProduct(
                     watchlistDTO.getProductName(),
+                    watchlistDTO.getBrand(),
+                    watchlistDTO.getPlatformName(),
                     watchlistDTO.getImageUrl(),
-                    watchlistDTO.getDeepLink()
+                    watchlistDTO.getDeepLink(),
+                    watchlistDTO.getCurrentPrice(),
+                    watchlistDTO.getCurrentPrice()
             );
-
-            // Check if already exists
             boolean exists = watchListRepo.existsByUserAndProduct(user, product);
             if (exists) {
                 log.info("Product already in watchlist - User: {}, Product: {}", uid, watchlistDTO.getProductName());
                 throw new IllegalStateException("Product already in watchlist");
             }
 
-            // Create watchlist entry
             Watchlist watchlist = new Watchlist();
             watchlist.setUser(user);
             watchlist.setProduct(product);
-            watchlist.setWatchEndDate(watchlistDTO.getWatchEndDate());
 
             watchListRepo.save(watchlist);
 
-            log.info("Successfully added to watchlist - User: {}, Product: {} (PID: {}), End Date: {}",
-                    uid, watchlistDTO.getProductName(), product.getPid(), watchlistDTO.getWatchEndDate());
+            log.info("Successfully added to watchlist - User: {}, Product: {} (PID: {})",
+                    uid, watchlistDTO.getProductName(), product.getPid());
 
         } catch (UsernameNotFoundException | IllegalStateException e) {
             log.error("Error adding to watchlist: {}", e.getMessage());
@@ -112,37 +120,6 @@ public class WatchListService {
     }
 
     @Transactional
-    public int removeExpiredWatchlistItems() {
-        LocalDate today = LocalDate.now();
-
-        log.info("Removing expired watchlist items (date: {})", today);
-
-        List<Watchlist> expiredItems = watchListRepo.findByWatchEndDateBefore(today);
-        int expiredCount = expiredItems.size();
-
-        if (expiredCount > 0) {
-            watchListRepo.deleteAll(expiredItems);
-            log.info("Removed {} expired watchlist items", expiredCount);
-        } else {
-            log.debug("No expired watchlist items found");
-        }
-
-        return expiredCount;
-    }
-
-    public List<WatchlistResponseDTO> getWatchlistExpiringSoon() {
-        LocalDate today = LocalDate.now();
-        LocalDate threeDaysFromNow = today.plusDays(3);
-
-        log.debug("Fetching watchlist items expiring between {} and {}", today, threeDaysFromNow);
-
-        return watchListRepo.findByWatchEndDateBetween(today, threeDaysFromNow)
-                .stream()
-                .map(mapper::toResponseDTO)
-                .toList();
-    }
-
-    @Transactional
     public void clearAllWatchlist(String uid) {
         if (uid == null) {
             throw new IllegalArgumentException("User ID cannot be null");
@@ -155,37 +132,5 @@ public class WatchListService {
         log.info("Cleared {} watchlist items for user: {}", deletedCount, uid);
     }
 
-    public long getWatchlistCount(String uid) {
-        User user = userRepo.findById(uid)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
 
-        return watchListRepo.countByUser(user);
-    }
-
-    @Transactional
-    public void extendWatchlistEndDate(String uid, String productName, LocalDate newEndDate) {
-        if (uid == null || productName == null || newEndDate == null) {
-            throw new IllegalArgumentException("User ID, Product name, and new end date cannot be null");
-        }
-
-        log.info("Extending watchlist end date - User: {}, Product: {}, New Date: {}",
-                uid, productName, newEndDate);
-
-        User user = userRepo.findById(uid)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
-
-        Product product = productService.getProductByName(productName)
-                .orElseThrow(() -> new EntityNotFoundException("Product not found: " + productName));
-
-        Watchlist watchlist = watchListRepo.findByUserAndProduct(user, product)
-                .orElseThrow(() -> new EntityNotFoundException("Watchlist entry not found"));
-
-        LocalDate oldEndDate = watchlist.getWatchEndDate();
-        watchlist.setWatchEndDate(newEndDate);
-
-        watchListRepo.save(watchlist);
-
-        log.info("Successfully extended watchlist end date - User: {}, Product: {}, {} -> {}",
-                uid, productName, oldEndDate, newEndDate);
-    }
 }

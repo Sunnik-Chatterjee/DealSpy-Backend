@@ -27,6 +27,4 @@ public class Watchlist {
     @ManyToOne
     @JoinColumn(name = "pid", referencedColumnName = "pid")
     private Product product;
-
-    private LocalDate watchEndDate;
 }

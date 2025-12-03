@@ -23,18 +23,22 @@ public class SaveForLaterService {
 
     @Autowired
     private UserRepo userRepo;
+
     @Autowired
     private SaveForLaterRepo saveForLaterRepo;
+
     @Autowired
     private SaveForLaterMapper mapper;
+
     @Autowired
     private ProductService productService;
+
 
     public List<SaveForLaterDTO> getUserSaveForLater(String uid) {
         User user = userRepo.findById(uid)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
 
-        log.debug("Fetching save for later items for user: {}", uid);
+        log.debug("Fetching save-for-later items for user: {}", uid);
 
         return saveForLaterRepo.findByUser(user)
                 .stream()
@@ -42,19 +46,37 @@ public class SaveForLaterService {
                 .toList();
     }
 
+
     @Transactional
     public String addToSaveForLater(String uid, SaveForLaterDTO dto) {
+
+        if (uid == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        if (dto == null || dto.getProductName() == null) {
+            throw new IllegalArgumentException("SaveForLaterDTO and product name cannot be null");
+        }
+
         try {
             log.info("Adding to save for later - User: {}, Product: {}", uid, dto.getProductName());
+
             User user = userRepo.findById(uid)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
-            Product product = productService.findOrCreateProduct(
+
+
+             Product product = productService.findOrCreateProduct(
                     dto.getProductName(),
+                    dto.getBrand(),
+                    dto.getPlatformName(),
                     dto.getImageUrl(),
-                    dto.getDeepLink()
+                    dto.getDeepLink(),
+                    dto.getCurrentPrice(),
+                    dto.getCurrentPrice()
             );
 
-            Optional<SaveForLater> existing = saveForLaterRepo.findByUserAndProduct(user, product);
+            Optional<SaveForLater> existing =
+                    saveForLaterRepo.findByUserAndProduct(user, product);
+
             if (existing.isPresent()) {
                 log.info("Product already in save for later - User: {}, Product: {}", uid, dto.getProductName());
                 return "Product already in save for later";
@@ -71,15 +93,14 @@ public class SaveForLaterService {
 
             return "Product added to save for later successfully";
 
-        } catch (UsernameNotFoundException e) {
-            log.error("User not found: {}", uid);
-            throw e;
+
         } catch (Exception e) {
-            log.error("Failed to add to save for later - User: {}, Product: {}",
-                    uid, dto.getProductName(), e);
+            log.error("Failed to add to save for later - User: {}, Product: {}", uid, dto.getProductName(), e);
             throw new RuntimeException("Failed to add to save for later: " + e.getMessage());
         }
     }
+
+
     @Transactional
     public void deleteFromSaveForLater(String uid, String productName) {
         if (uid == null || productName == null) {

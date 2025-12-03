@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SaveForLaterResponseDTO {
     private String productName;
+    private String brand;
+    private String platformName;
     private String imageUrl;
     private String deepLink;
+    private Double currentPrice;
+    private Double lastKnownPrice;
 }

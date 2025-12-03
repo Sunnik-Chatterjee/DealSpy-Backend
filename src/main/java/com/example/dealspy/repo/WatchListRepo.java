@@ -27,12 +27,6 @@ public interface WatchListRepo extends JpaRepository<Watchlist, Long> {
     @Query("DELETE FROM Watchlist w WHERE w.user.uid = :uid AND w.product.pid = :pid")
     int deleteByUserUidAndProductPid(@Param("uid") String uid, @Param("pid") Integer pid);
 
-    long countByUser(User user);
-    Optional<Watchlist> findByUserAndProduct(User user, Product product);
-    List<Watchlist> findByWatchEndDateBefore(LocalDate date);
-
-    List<Watchlist> findByWatchEndDateBetween(LocalDate startDate, LocalDate endDate);
-
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM Watchlist w WHERE w.user.uid = :uid")
     int deleteByUserUid(@Param("uid") String uid);

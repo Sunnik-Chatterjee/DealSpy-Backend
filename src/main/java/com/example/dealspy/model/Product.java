@@ -19,12 +19,11 @@ public class Product {
 
     @Column(unique = true, nullable = false)
     private String name;
-
+    private String brand;
+    private String platform;
     private Double currentPrice;
     private Double lastLowestPrice;
     private Boolean isPriceDropped;
     private String imageUrl;
-    @Column(name = "`desc`")
-    private String desc;
     private String deepLink;
 }

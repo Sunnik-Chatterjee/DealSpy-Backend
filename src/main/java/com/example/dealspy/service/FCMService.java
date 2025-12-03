@@ -33,8 +33,8 @@ public class FCMService {
     }
 
     @Async
-    public CompletableFuture<Void> sendNotificationToTokenAsync(String token, String title, String body) {
+    public void sendNotificationToTokenAsync(String token, String title, String body) {
         sendNotificationToToken(token, title, body);
-        return CompletableFuture.completedFuture(null);
+        CompletableFuture.completedFuture(null);
     }
 }

@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class WatchlistResponseDTO {
     private String productName;
-    private TimeLeftDTO timeLeft;
+    private String brand;
+    private String platformName;
     private String imageUrl;
-    private String desc;
+    private String deepLink;
+    private Double currentPrice;
+    private Double lastKnownPrice;
 }

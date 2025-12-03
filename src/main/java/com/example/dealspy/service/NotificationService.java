@@ -1,6 +1,5 @@
 package com.example.dealspy.service;
 
-import com.example.dealspy.model.Product;
 import com.example.dealspy.model.User;
 import com.example.dealspy.repo.WatchListRepo;
 
@@ -23,7 +22,7 @@ public class NotificationService {
         this.fcmService = fcmService;
     }
     @Async
-    public CompletableFuture<Void> notifyPriceDropAsync(Integer productId, String productName, Double newPrice) {
+    public void notifyPriceDropAsync(Integer productId, String productName, Double newPrice) {
         log.info("Processing price drop notification for product: {} (ID: {})", productName, productId);
 
         try {
@@ -31,7 +30,8 @@ public class NotificationService {
 
             if (users.isEmpty()) {
                 log.info("No users watching product: {}", productName);
-                return CompletableFuture.completedFuture(null);
+                CompletableFuture.completedFuture(null);
+                return;
             }
 
             String title = "Price Drop Alert!";
@@ -51,6 +51,6 @@ public class NotificationService {
             log.error("Error in notifyPriceDropAsync for product {}: {}", productName, e.getMessage(), e);
         }
 
-        return CompletableFuture.completedFuture(null);
+        CompletableFuture.completedFuture(null);
     }
 }
