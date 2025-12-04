@@ -32,7 +32,7 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String requestPath = request.getRequestURI();
         if (requestPath.startsWith("/auth/") ||
-                requestPath.equals("/") || requestPath.startsWith("/error") || requestPath.startsWith("/products/")) {
+                requestPath.equals("/") || requestPath.startsWith("/error") || requestPath.startsWith("/products/") || requestPath.equals("/actuator/health")) {
             filterChain.doFilter(request, response);
             return;
         }
