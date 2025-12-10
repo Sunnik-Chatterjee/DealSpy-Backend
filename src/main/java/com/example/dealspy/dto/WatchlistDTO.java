@@ -11,8 +11,8 @@ import java.time.LocalDate;
 public class WatchlistDTO {
     private String productName;
     private String brand;
-    private String platform;   // was platformName
+    private String platform;      // must be 'platform'
     private String imageUrl;
     private String deepLink;
-    private Double price;      // was currentPrice
+    private Double price;         // must be 'price'
 }

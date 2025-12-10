@@ -65,11 +65,11 @@ public class WatchListService {
             Product product = productService.findOrCreateProduct(
                     watchlistDTO.getProductName(),
                     watchlistDTO.getBrand(),
-                    watchlistDTO.getPlatformName(),
+                    watchlistDTO.getPlatform(),   // ✅ platform
                     watchlistDTO.getImageUrl(),
                     watchlistDTO.getDeepLink(),
-                    watchlistDTO.getCurrentPrice(),
-                    watchlistDTO.getCurrentPrice()
+                    watchlistDTO.getPrice(),      // ✅ price
+                    watchlistDTO.getPrice()
             );
             boolean exists = watchListRepo.existsByUserAndProduct(user, product);
             if (exists) {

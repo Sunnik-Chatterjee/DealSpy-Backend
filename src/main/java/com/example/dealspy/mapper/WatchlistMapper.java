@@ -26,4 +26,7 @@ public interface WatchlistMapper {
     @Mapping(source = "product.currentPrice",    target = "price")
     @Mapping(source = "product.lastLowestPrice", target = "lastKnownPrice")
     WatchlistResponseDTO toResponseDTO(Watchlist watchlist);
+
+    List<WatchlistDTO> toDTOList(List<Watchlist> watchlists);
+    List<WatchlistResponseDTO> toResponseDTOList(List<Watchlist> watchlists);
 }
