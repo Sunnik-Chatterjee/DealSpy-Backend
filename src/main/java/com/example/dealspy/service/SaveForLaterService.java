@@ -64,14 +64,14 @@ public class SaveForLaterService {
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + uid));
 
 
-             Product product = productService.findOrCreateProduct(
+            Product product = productService.findOrCreateProduct(
                     dto.getProductName(),
                     dto.getBrand(),
-                    dto.getPlatformName(),
+                    dto.getPlatform(),   // was getPlatformName()
                     dto.getImageUrl(),
                     dto.getDeepLink(),
-                    dto.getCurrentPrice(),
-                    dto.getCurrentPrice()
+                    dto.getPrice(),      // was getCurrentPrice()
+                    dto.getPrice()       // initial lastKnownPrice = current price
             );
 
             Optional<SaveForLater> existing =

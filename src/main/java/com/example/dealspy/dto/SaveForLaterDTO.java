@@ -12,8 +12,8 @@ import java.time.LocalDate;
 public class SaveForLaterDTO {
     private String productName;
     private String brand;
-    private String platformName;
+    private String platform;   // renamed from platformName
     private String imageUrl;
     private String deepLink;
-    private Double currentPrice;
+    private Double price;      // renamed from currentPrice
 }
