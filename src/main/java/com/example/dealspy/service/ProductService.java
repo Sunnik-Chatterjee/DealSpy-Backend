@@ -139,14 +139,6 @@ public class ProductService {
         }
     }
 
-    /**
-     * Scheduled job:
-     *  1. Calls FastAPI endpoint to refresh product prices in DB.
-     *  2. After FastAPI finishes, reads DB and sends price-drop notifications.
-     *
-     * FastAPI should expose something like: POST /v1/update/prices
-     */
-    @Scheduled(fixedRateString = "${dealspy.price-update-ms:14400000}")
     public void scheduledPriceUpdate() {
         WebClient client = webClientBuilder.baseUrl(fastApiBaseUrl).build();
 

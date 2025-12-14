@@ -29,7 +29,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(firebaseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/auth/**", "/", "/error","/products/**,/actuator/health").permitAll()
+                        .requestMatchers("/auth/**", "/", "/error", "/products/**", "/health", "/docs","/swagger-ui/index.html").permitAll()
                         .anyRequest().authenticated()
                 );
 
